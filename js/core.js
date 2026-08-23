@@ -414,6 +414,37 @@ function openModal(html){
 function closeModal(){
   document.getElementById('modal-overlay').style.display = 'none';
   document.getElementById('modal-box').innerHTML = '';
+  if(_confirmDialogResolve){
+    const resolve = _confirmDialogResolve;
+    _confirmDialogResolve = null;
+    resolve(false);
+  }
+}
+
+// ネイティブのwindow.confirm()はLINE/Instagram/X内蔵ブラウザなど一部の環境で
+// 動作しない(ダイアログが出ない、または常に無視される)ことがあるため、
+// 独自のモーダルで確認ダイアログを代替する。使い方はconfirm()と同じ感覚で
+// `if(!await confirmDialog('...')) return;` のように使う。
+let _confirmDialogResolve = null;
+function confirmDialog(message){
+  return new Promise(resolve=>{
+    _confirmDialogResolve = resolve;
+    openModal(`
+      <div style="font-size:14px;color:var(--text);line-height:1.7;margin-bottom:16px;white-space:pre-line;">${escapeHtml(message)}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="ghost" id="confirm-dialog-cancel" style="flex:1;margin-top:0;">キャンセル</button>
+        <button class="primary" id="confirm-dialog-ok" style="flex:1;margin-top:0;">OK</button>
+      </div>
+    `);
+    document.getElementById('confirm-dialog-cancel').onclick = ()=>resolveConfirmDialog(false);
+    document.getElementById('confirm-dialog-ok').onclick = ()=>resolveConfirmDialog(true);
+  });
+}
+function resolveConfirmDialog(result){
+  const resolve = _confirmDialogResolve;
+  _confirmDialogResolve = null;
+  closeModal();
+  if(resolve) resolve(result);
 }
 
 let picker = { dates: new Set(), year: _today.getFullYear(), month: _today.getMonth() };
@@ -492,7 +523,7 @@ function jumpToEvent(id, type){
 }
 
 async function resetAll(){
-  if(!confirm('全データを消去して初期状態に戻します。よろしいですか?')) return;
+  if(!await confirmDialog('全データを消去して初期状態に戻します。よろしいですか?')) return;
   data = defaultData();
   currentPlayer = null;
   editingEventId = null;

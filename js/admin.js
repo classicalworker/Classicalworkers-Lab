@@ -112,7 +112,7 @@ async function adminAddMember(){
 }
 
 async function adminDeleteMember(name){
-  if(!confirm(`${name}さんを削除します。対戦履歴・目標もすべて削除され、元に戻せません。よろしいですか?`)) return;
+  if(!await confirmDialog(`${name}さんを削除します。対戦履歴・目標もすべて削除され、元に戻せません。よろしいですか?`)) return;
   delete data.players[name];
   await saveData();
   renderAdmin();
@@ -227,7 +227,7 @@ async function adminTogglePinAnnouncement(id){
 }
 
 async function adminDeleteAnnouncement(id){
-  if(!confirm('このお知らせを削除しますか?')) return;
+  if(!await confirmDialog('このお知らせを削除しますか?')) return;
   data.announcements = (data.announcements||[]).filter(a=>a.id!==id);
   await saveData();
   renderAdmin();

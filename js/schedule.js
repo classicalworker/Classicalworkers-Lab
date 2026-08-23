@@ -88,10 +88,14 @@ function renderCalendarMonth(){
 
 function renderSchedule(){
   const el = document.getElementById('view-schedule');
-  const names = Object.keys(data.players);
 
-  // 「あなたは」が選択できるよう修正(currentPlayerを反映)
-  const whoamiOptions = names.map(n=>`<option value="${escapeHtml(n)}" ${currentPlayer===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
+  // サイト全体のログイン(名前+PIN)で本人が特定できているので、
+  // ここで改めて「あなたは」を聞かず、ログイン中の本人をそのまま出欠の記録対象にする
+  if(!currentPlayer){
+    const logged = getLoggedInPlayer();
+    if(logged && data.players[logged]) currentPlayer = logged;
+  }
+
   const upcoming = (data.events||[]).filter(ev=>!isEventFullyPast(ev)).slice().sort((a,b)=> (a.dates[0]||'').localeCompare(b.dates[0]||''));
   const eventsHtml = upcoming.length>0 ? upcoming.map(ev=>eventCardHtml(ev)).join('') : '<div class="empty">予定はまだありません</div>';
 
@@ -109,12 +113,6 @@ function renderSchedule(){
       <button class="add-open-btn" onclick="openEventModal()" style="margin:0;">＋ 新しい予定を追加</button>
     </div>
 
-    <div class="whoami">
-      <label style="margin:0">あなたは:</label>
-      <select onchange="setSchedulePlayer(this.value)">
-        <option value="">選択してください</option>${whoamiOptions}
-      </select>
-    </div>
     ${eventsHtml}
 
     <div class="notice-section-title">📅 カレンダー</div>
@@ -299,14 +297,16 @@ function openDayModal(dateStr){
   document.getElementById('modal-box').dataset.dayModal = dateStr;
 }
 
-function setSchedulePlayer(v){
-  currentPlayer = v || null;
-  renderSchedule();
-}
-
 function deleteEvent(id){
   requireAdminPin(async ()=>{
-    if(!confirm('この予定を削除しますか？')) return;
+    // 確認ダイアログは同じモーダル領域を使うため、日付詳細モーダルを開いた状態から
+    // 呼ばれた場合はキャンセル時に元の表示へ戻す
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none';
+    const priorDay = document.getElementById('modal-box').dataset.dayModal;
+    if(!await confirmDialog('この予定を削除しますか？')){
+      if(wasDayModalOpen && priorDay) openDayModal(priorDay);
+      return;
+    }
     data.events = data.events.filter(e=>e.id!==id);
     editingEventId = null;
     await saveData();
@@ -317,7 +317,7 @@ function deleteEvent(id){
 }
 
 async function setAttendance(eventId, day, status){
-  if(!currentPlayer){ showToast('先に「あなたは」を選択してください'); return; }
+  if(!currentPlayer){ showToast('ログイン中のプレイヤー情報を確認できませんでした'); return; }
   const ev = data.events.find(e=>e.id===eventId);
   if(!ev) return;
   if(!ev.attendance) ev.attendance = {};
@@ -335,11 +335,17 @@ function adminDeleteAttendance(eventId, day, name){
   requireAdminPin(async ()=>{
     const ev = data.events.find(e=>e.id===eventId);
     if(!ev || !ev.attendance || !ev.attendance[day]) return;
-    if(!confirm(`${name}さんの出欠回答を削除しますか?`)) return;
+    // 確認ダイアログは同じモーダル領域を使うため、日付詳細モーダルを開いた状態から
+    // 呼ばれた場合はキャンセル時に元の表示へ戻す
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day;
+    if(!await confirmDialog(`${name}さんの出欠回答を削除しますか?`)){
+      if(wasDayModalOpen) openDayModal(day);
+      return;
+    }
     delete ev.attendance[day][name];
     await saveData();
     renderSchedule();
-    if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
+    if(wasDayModalOpen){
       openDayModal(day);
     }
     showToast('出欠回答を削除しました');
@@ -348,7 +354,12 @@ function adminDeleteAttendance(eventId, day, name){
 
 function deleteTournament(id){
   requireAdminPin(async ()=>{
-    if(!confirm('この大会記録を削除しますか？')) return;
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none';
+    const priorDay = document.getElementById('modal-box').dataset.dayModal;
+    if(!await confirmDialog('この大会記録を削除しますか？')){
+      if(wasDayModalOpen && priorDay) openDayModal(priorDay);
+      return;
+    }
     data.tournaments = data.tournaments.filter(t=>t.id!==id);
     await saveData();
     renderSchedule();

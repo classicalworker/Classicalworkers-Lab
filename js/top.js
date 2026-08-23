@@ -529,7 +529,10 @@ function topRankingCardHtml(){
 // ---- お知らせカード: 予定の登録・目標達成などの最新の出来事を表示 ----
 
 function topAnnouncementsCardHtml(){
-  const items = sortedAnnouncements().slice(0, 5);
+  const all = sortedAnnouncements();
+  // ピン止めした分は全件表示し、それ以外は新しい4件のみ表示して、古いものは非表示にする
+  const pinnedCount = all.filter(a=>a.pinned).length;
+  const items = all.slice(0, pinnedCount + 4);
   if(items.length===0){
     return `<div class="top-card-empty-msg">まだお知らせはありません。</div>`;
   }

@@ -457,14 +457,15 @@
     .onair-item-link{align-self:center;padding:4px 10px;}
   }
 
-  /* ---- TOPページ: ダッシュボードグリッド(NOW ON AIRを最上段に、以下2列でカードを配置) ---- */
+  /* ---- TOPページ: ダッシュボードグリッド ----
+     NOW ON AIR → お知らせ → 予定 の順に全幅で並べ、その下は2列でカードを配置する */
   .top-dashboard{
     display:grid;
     grid-template-columns:1fr;
     grid-template-areas:
       "onair"
-      "schedule"
       "notice"
+      "schedule"
       "goals"
       "mission"
       "ranking"
@@ -476,7 +477,8 @@
       grid-template-columns:1fr 1fr;
       grid-template-areas:
         "onair onair"
-        "schedule notice"
+        "notice notice"
+        "schedule schedule"
         "goals mission"
         "ranking mrranking";
       align-items:start;
@@ -486,7 +488,7 @@
   @media (min-width:640px){
     /* 横並びペアの高さを揃えて、行内に不自然な空白ができないようにする
        (「みんなの課題」「自分の課題」は内容量に応じて枠を変えたいので対象外) */
-    .top-card--schedule, .top-card--notice, .top-card--ranking, .top-card--mrranking{
+    .top-card--ranking, .top-card--mrranking{
       height:100%;
     }
   }
@@ -517,6 +519,28 @@
     font-size:13px;color:var(--text-dim);line-height:1.7;padding:14px;
   }
   .top-card-body--schedule{display:flex;flex-direction:column;gap:14px;}
+  @media (min-width:640px){
+    /* 予定カードが全幅になったので、左にカレンダー・右に出欠確認を横並びで表示する */
+    .top-card-body--schedule{
+      flex-direction:row;
+      align-items:flex-start;
+      gap:20px;
+    }
+    .top-card-body--schedule .mini-cal{
+      flex:1 1 50%;
+      min-width:0;
+      border-top:none;
+      padding-top:0;
+    }
+    .top-card-body--schedule .top-attend-input{
+      flex:1 1 50%;
+      min-width:0;
+      border-top:none;
+      padding-top:0;
+      border-left:1px dashed var(--panel-border);
+      padding-left:20px;
+    }
+  }
   .top-card-empty-msg{font-size:13px;color:var(--text-dim);line-height:1.7;}
   .top-card-highlight{color:var(--gold);font-weight:700;}
   .top-card-title-note{font-weight:600;font-size:12px;color:rgba(255,255,255,.85);margin-left:4px;letter-spacing:0;}
@@ -629,7 +653,7 @@
     display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 10px;
     border:1px solid var(--panel-border);border-radius:9px;background:var(--input-bg);
   }
-  .notice-item-text{font-size:13px;color:var(--text);line-height:1.4;}
+  .notice-item-text{font-size:13px;color:var(--text);line-height:1.6;white-space:pre-line;}
   .notice-item-time{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);flex-shrink:0;white-space:nowrap;}
 
   /* -- ランキングカード: 3位まで -- */
