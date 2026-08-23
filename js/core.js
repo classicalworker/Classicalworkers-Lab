@@ -58,9 +58,9 @@ function defaultData(){
     matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
-    twitchLogin:''
+    twitchLogin:'', pinHash:''
   });
-  return {players, events:[], tournaments:[]};
+  return {players, events:[], tournaments:[], admin:{pinHash:''}};
 }
 
 // データ補正用の共通関数
@@ -111,6 +111,7 @@ function normalizeData(data){
       if (p.streamTitle === undefined) p.streamTitle = '';
       if (p.isLive === undefined) p.isLive = false;
       if (p.twitchLogin === undefined) p.twitchLogin = '';
+      if (p.pinHash === undefined) p.pinHash = '';
       
       // matches内の各エントリも補正
       p.matches.forEach(m => {
@@ -143,6 +144,13 @@ function normalizeData(data){
     });
   } else {
     data.tournaments = [];
+  }
+
+  // admin(管理者パスワード)の補正
+  if (!data.admin || typeof data.admin !== 'object') {
+    data.admin = {pinHash:''};
+  } else if (data.admin.pinHash === undefined) {
+    data.admin.pinHash = '';
   }
   
   // 古いプロパティを削除
@@ -559,4 +567,171 @@ async function initPage(){
   if (typeof renderCurrentPage === 'function') {
     renderCurrentPage();
   }
+}
+
+// ===== 簡易PINコード認証(メンバー本人確認・管理者ログイン用) =====
+// ※このPIN機能はあくまで「身内の誤操作・悪ふざけ防止」を目的とした簡易的なものです。
+// データベースのセキュリティルール上は auth!=null であれば誰でも読み書き可能なため、
+// 本気で突破しようとする第三者からの保護までは想定していません。
+
+// PINをブラウザ内でハッシュ化(平文のままFirebaseに保存しないため)
+async function hashPin(pin){
+  const enc = new TextEncoder().encode('cwlab_salt_' + pin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// 管理者としてこのタブでログイン済みかどうか
+function isAdminUnlocked(){
+  return sessionStorage.getItem('cw_admin_unlocked') === '1';
+}
+function setAdminUnlocked(){
+  sessionStorage.setItem('cw_admin_unlocked', '1');
+}
+function adminLogout(){
+  sessionStorage.removeItem('cw_admin_unlocked');
+}
+
+// 指定した名前が、このタブで本人確認(PIN入力)済みかどうか
+function isMemberUnlocked(name){
+  return sessionStorage.getItem('cw_pin_unlocked_' + name) === '1';
+}
+function setMemberUnlocked(name){
+  sessionStorage.setItem('cw_pin_unlocked_' + name, '1');
+}
+
+// 自分のマイページを開く前に呼び出す関門。
+// PIN未設定なら「PINを新規設定」、設定済みなら「PINを入力」を求める。
+// 管理者としてログイン中の場合はPIN確認をスキップして即座に onSuccess を呼ぶ。
+// onCancel が渡された場合、閉じるボタンで呼び出す(モーダルを閉じた後に選択状態を戻す等に使用)。
+function requireMemberPin(name, onSuccess, onCancel){
+  const p = data.players[name];
+  if(!p){ if(onCancel) onCancel(); return; }
+
+  if(isAdminUnlocked() || isMemberUnlocked(name)){
+    onSuccess();
+    return;
+  }
+
+  const handleClose = ()=>{ closeModal(); if(onCancel) onCancel(); };
+
+  if(!p.pinHash){
+    openModal(`
+      <div class="modal-head">
+        <h2>🔐 PINコードを設定</h2>
+        <button class="modal-close" id="pin-modal-close">×</button>
+      </div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">
+        ${escapeHtml(name)}さんのマイページはまだPIN未設定です。次回以降ご自身しか編集できないように、4桁の数字を設定してください。
+      </div>
+      <label>PINコード(4桁の数字)</label>
+      <input type="text" id="pin-set-1" inputmode="numeric" maxlength="4" placeholder="例:1234">
+      <label>もう一度入力</label>
+      <input type="text" id="pin-set-2" inputmode="numeric" maxlength="4" placeholder="確認用">
+      <div id="pin-set-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
+      <button class="primary" id="pin-set-btn">設定する</button>
+    `);
+    document.getElementById('pin-modal-close').onclick = handleClose;
+    document.getElementById('pin-set-btn').onclick = async ()=>{
+      const v1 = document.getElementById('pin-set-1').value.trim();
+      const v2 = document.getElementById('pin-set-2').value.trim();
+      const errEl = document.getElementById('pin-set-error');
+      if(!/^\d{4}$/.test(v1)){ errEl.textContent='4桁の数字で入力してください'; errEl.style.display='block'; return; }
+      if(v1!==v2){ errEl.textContent='入力が一致しません'; errEl.style.display='block'; return; }
+      p.pinHash = await hashPin(v1);
+      await saveData();
+      setMemberUnlocked(name);
+      closeModal();
+      onSuccess();
+    };
+    return;
+  }
+
+  openModal(`
+    <div class="modal-head">
+      <h2>🔐 PINコードを入力</h2>
+      <button class="modal-close" id="pin-modal-close">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">
+      ${escapeHtml(name)}さん本人確認のため、設定済みのPINコードを入力してください。
+    </div>
+    <input type="text" id="pin-check" inputmode="numeric" maxlength="4" placeholder="PINコード">
+    <div id="pin-check-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
+    <button class="primary" id="pin-check-btn">確認する</button>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:10px;">PINを忘れた場合はサブリーダー(管理者)にリセットを依頼してください。</div>
+  `);
+  document.getElementById('pin-modal-close').onclick = handleClose;
+  document.getElementById('pin-check-btn').onclick = async ()=>{
+    const v = document.getElementById('pin-check').value.trim();
+    const errEl = document.getElementById('pin-check-error');
+    const h = await hashPin(v);
+    if(h !== p.pinHash){ errEl.textContent='PINコードが一致しません'; errEl.style.display='block'; return; }
+    setMemberUnlocked(name);
+    closeModal();
+    onSuccess();
+  };
+}
+
+// 管理者ログインの関門。管理者PIN未設定なら新規設定、設定済みなら入力を求める。
+// このタブで既に管理者としてログイン済みなら即座に onSuccess を呼ぶ。
+function requireAdminPin(onSuccess, onCancel){
+  if(isAdminUnlocked()){ onSuccess(); return; }
+
+  const handleClose = ()=>{ closeModal(); if(onCancel) onCancel(); };
+
+  if(!data.admin || !data.admin.pinHash){
+    openModal(`
+      <div class="modal-head">
+        <h2>🔐 管理者PINを新規設定</h2>
+        <button class="modal-close" id="admin-pin-modal-close">×</button>
+      </div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">
+        管理者PINはまだ設定されていません。サブリーダーの皆さんで共有する4桁の数字を設定してください。
+      </div>
+      <label>管理者PIN(4桁の数字)</label>
+      <input type="text" id="admin-pin-set-1" inputmode="numeric" maxlength="4" placeholder="例:1234">
+      <label>もう一度入力</label>
+      <input type="text" id="admin-pin-set-2" inputmode="numeric" maxlength="4" placeholder="確認用">
+      <div id="admin-pin-set-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
+      <button class="primary" id="admin-pin-set-btn">設定する</button>
+    `);
+    document.getElementById('admin-pin-modal-close').onclick = handleClose;
+    document.getElementById('admin-pin-set-btn').onclick = async ()=>{
+      const v1 = document.getElementById('admin-pin-set-1').value.trim();
+      const v2 = document.getElementById('admin-pin-set-2').value.trim();
+      const errEl = document.getElementById('admin-pin-set-error');
+      if(!/^\d{4}$/.test(v1)){ errEl.textContent='4桁の数字で入力してください'; errEl.style.display='block'; return; }
+      if(v1!==v2){ errEl.textContent='入力が一致しません'; errEl.style.display='block'; return; }
+      if(!data.admin) data.admin = {pinHash:''};
+      data.admin.pinHash = await hashPin(v1);
+      await saveData();
+      setAdminUnlocked();
+      closeModal();
+      onSuccess();
+    };
+    return;
+  }
+
+  openModal(`
+    <div class="modal-head">
+      <h2>🔐 管理者PINを入力</h2>
+      <button class="modal-close" id="admin-pin-modal-close">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">
+      この操作には管理者PINが必要です。サブリーダーに確認してください。
+    </div>
+    <input type="text" id="admin-pin-check" inputmode="numeric" maxlength="4" placeholder="管理者PIN">
+    <div id="admin-pin-check-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
+    <button class="primary" id="admin-pin-check-btn">確認する</button>
+  `);
+  document.getElementById('admin-pin-modal-close').onclick = handleClose;
+  document.getElementById('admin-pin-check-btn').onclick = async ()=>{
+    const v = document.getElementById('admin-pin-check').value.trim();
+    const errEl = document.getElementById('admin-pin-check-error');
+    const h = await hashPin(v);
+    if(h !== data.admin.pinHash){ errEl.textContent='PINコードが一致しません'; errEl.style.display='block'; return; }
+    setAdminUnlocked();
+    closeModal();
+    onSuccess();
+  };
 }

@@ -565,21 +565,26 @@ function onPlayerChange(v){
   if(v==='__new__'){
     document.getElementById('new-player-box').style.display='block';
     currentPlayer = null;
+  } else if(!v){
+    currentPlayer = null;
+    renderMyPage();
   } else {
-    currentPlayer = v || null;
-    opponentName = '';
-    pendingResult = null;
-    savedScoreMe = 0;
-    savedScoreOpp = 0;
-    selectedEventId = '';
-    newEventNameInput = '';
-    editingMatchIndex = null;
-    pendingIconData = null;
-    if(currentPlayer){
+    requireMemberPin(v, ()=>{
+      currentPlayer = v;
+      opponentName = '';
+      pendingResult = null;
+      savedScoreMe = 0;
+      savedScoreOpp = 0;
+      selectedEventId = '';
+      newEventNameInput = '';
+      editingMatchIndex = null;
+      pendingIconData = null;
       renderMyPageWithPlayer();
-    } else {
+    }, ()=>{
+      // PIN確認をキャンセル/失敗した場合は選択を戻す
+      currentPlayer = null;
       renderMyPage();
-    }
+    });
   }
 }
 
@@ -797,11 +802,23 @@ async function deleteGoal(idx){
 }
 
 
+let _mypageAutoSelectDone = false;
 function renderCurrentPage(){
   if(currentPlayer){
     renderMyPageWithPlayer();
   } else {
     renderMyPage();
+    // 管理者ページの「詳細編集」リンク(?player=名前)から来た場合、自動でその人を選択する。
+    // 管理者ログイン中ならPIN確認なしで、そうでなければ通常通りPIN確認が入る。
+    if(!_mypageAutoSelectDone){
+      _mypageAutoSelectDone = true;
+      const pre = new URLSearchParams(location.search).get('player');
+      if(pre && data.players[pre]){
+        const sel = document.getElementById('player-select');
+        if(sel) sel.value = pre;
+        onPlayerChange(pre);
+      }
+    }
   }
 }
 

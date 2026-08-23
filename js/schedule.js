@@ -252,10 +252,12 @@ function tournamentCardHtml(t){
 }
 
 function startEditEvent(id){
-  editingEventId = id;
-  // 編集モードに入ったら詳細モーダルを閉じる
-  closeModal();
-  renderSchedule();
+  requireAdminPin(()=>{
+    editingEventId = id;
+    // 編集モードに入ったら詳細モーダルを閉じる
+    closeModal();
+    renderSchedule();
+  });
 }
 
 function cancelEventEdit(){
@@ -302,14 +304,16 @@ function setSchedulePlayer(v){
   renderSchedule();
 }
 
-async function deleteEvent(id){
-  if(!confirm('この予定を削除しますか？')) return;
-  data.events = data.events.filter(e=>e.id!==id);
-  editingEventId = null;
-  await saveData();
-  closeModal();
-  renderSchedule();
-  showToast('削除しました');
+function deleteEvent(id){
+  requireAdminPin(async ()=>{
+    if(!confirm('この予定を削除しますか？')) return;
+    data.events = data.events.filter(e=>e.id!==id);
+    editingEventId = null;
+    await saveData();
+    closeModal();
+    renderSchedule();
+    showToast('削除しました');
+  });
 }
 
 async function setAttendance(eventId, day, status){
@@ -326,10 +330,14 @@ async function setAttendance(eventId, day, status){
   }
 }
 
-async function deleteTournament(id){
-  data.tournaments = data.tournaments.filter(t=>t.id!==id);
-  await saveData();
-  renderSchedule();
+function deleteTournament(id){
+  requireAdminPin(async ()=>{
+    if(!confirm('この大会記録を削除しますか？')) return;
+    data.tournaments = data.tournaments.filter(t=>t.id!==id);
+    await saveData();
+    renderSchedule();
+    showToast('削除しました');
+  });
 }
 
 function pickerInit(initialDates){
@@ -408,13 +416,15 @@ let eventModalDesc = '';
 let eventModalDeadline = '';
 
 function openEventModal(){
-  eventModalAttendanceRequired = true;
-  eventModalTitle = '';
-  eventModalDesc = '';
-  eventModalDeadline = '';
-  pickerInit([]);
-  renderEventModal();
-  document.getElementById('modal-overlay').style.display = 'flex';
+  requireAdminPin(()=>{
+    eventModalAttendanceRequired = true;
+    eventModalTitle = '';
+    eventModalDesc = '';
+    eventModalDeadline = '';
+    pickerInit([]);
+    renderEventModal();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
 }
 function eventModalChangeMonth(delta){ eventModalSyncInputs(); pickerChangeMonth(delta, 'renderEventModal'); }
 function eventModalSyncInputs(){
@@ -542,23 +552,25 @@ let tournamentModalResult = '';
 let editingTournamentId = null;
 
 function openTournamentModal(id){
-  editingTournamentId = id || null;
-  if(editingTournamentId){
-    const t = (data.tournaments||[]).find(t=>t.id===editingTournamentId);
-    if(!t){ editingTournamentId = null; }
-    tournamentModalTitle = t ? t.title : '';
-    tournamentModalDesc = t ? (t.description||'') : '';
-    tournamentModalResult = t ? (t.result||'') : '';
-    pickerInit(t ? t.dates : []);
-  } else {
-    tournamentModalTitle = '';
-    tournamentModalDesc = '';
-    tournamentModalResult = '';
-    pickerInit([]);
-  }
-  closeModal();
-  renderTournamentModal();
-  document.getElementById('modal-overlay').style.display = 'flex';
+  requireAdminPin(()=>{
+    editingTournamentId = id || null;
+    if(editingTournamentId){
+      const t = (data.tournaments||[]).find(t=>t.id===editingTournamentId);
+      if(!t){ editingTournamentId = null; }
+      tournamentModalTitle = t ? t.title : '';
+      tournamentModalDesc = t ? (t.description||'') : '';
+      tournamentModalResult = t ? (t.result||'') : '';
+      pickerInit(t ? t.dates : []);
+    } else {
+      tournamentModalTitle = '';
+      tournamentModalDesc = '';
+      tournamentModalResult = '';
+      pickerInit([]);
+    }
+    closeModal();
+    renderTournamentModal();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
 }
 
 // カレンダー操作の直前に入力内容を保存しておく（再描画で消えないように）
