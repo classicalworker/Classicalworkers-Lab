@@ -166,8 +166,9 @@ function adminMemberEditHtml(){
 async function adminUpdatePlayerField(name, field, value){
   const p = data.players[name];
   if(!p) return;
-  if(field === 'mainGoalDone' && value){
+  if(field === 'mainGoalDone' && value && !p.mainGoalDone){
     p.mainGoalAchievedAt = new Date().toISOString();
+    if(p.mainGoal) pushAnnouncement(`🎉 ${name}さんが目標を達成しました:「${p.mainGoal}」`);
   } else if(field === 'mainGoalDone' && !value){
     p.mainGoalAchievedAt = null;
   }

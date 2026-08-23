@@ -86,7 +86,8 @@ function renderMyPageWithPlayer(){
       ${currentPlayer !== getLoggedInPlayer() ? `<div style="font-size:12px;color:var(--gold);margin-top:4px;">⚙️ 管理者として編集中です</div>` : ''}
     </div>
     <div class="card">
-      <h2><span class="tag">STEP 1</span>プロフィール</h2>
+      <h2 class="step-toggle" onclick="toggleMypageStep(1)"><span><span class="tag">STEP 1</span>プロフィール</span><span class="step-toggle-arrow" id="step-arrow-1">▾</span></h2>
+      <div class="step-body" id="step-body-1">
       <label>操作タイプ</label>
       <div class="choice-group">
         <label class="checkbox-choice ${(p.controlTypes||[]).includes('C')?'checked-cb':''}">
@@ -144,10 +145,12 @@ function renderMyPageWithPlayer(){
 
       <button class="primary" onclick="saveProfileStep2()">プロフィールを保存</button>
       <div id="step2-save-status" style="font-size:12px;color:var(--text-dim);margin-top:6px;text-align:center;"></div>
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="tag">STEP 2</span>対戦結果を記録</h2>
+      <h2 class="step-toggle" onclick="toggleMypageStep(2)"><span><span class="tag">STEP 2</span>対戦結果を記録</span><span class="step-toggle-arrow" id="step-arrow-2">▾</span></h2>
+      <div class="step-body" id="step-body-2">
       <label>大会名（オプション）</label>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="event-select" style="flex:1;" onchange="onEventSelect(this.value)">
@@ -188,10 +191,12 @@ function renderMyPageWithPlayer(){
         <div class="choice loss ${pendingResult==='loss'?'selected':''}" onclick="setResult('loss')">負け</div>
       </div>
       <button class="primary" onclick="recordMatch()">記録する</button>
+      </div>
     </div>
 
     <div class="card">
-      <h2><span class="tag">STEP 3</span>今シーズンの目標</h2>
+      <h2 class="step-toggle" onclick="toggleMypageStep(3)"><span><span class="tag">STEP 3</span>今シーズンの目標</span><span class="step-toggle-arrow" id="step-arrow-3">▾</span></h2>
+      <div class="step-body" id="step-body-3">
       <label>目標(このシーズンで一番達成したいこと)</label>
       <input type="text" id="main-goal-input" value="${escapeHtml(currentGoalValue || p.mainGoal || '')}" placeholder="例:Act毎3000試合こなす">
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer">
@@ -211,11 +216,12 @@ function renderMyPageWithPlayer(){
       <button class="primary" onclick="saveStep4()" style="margin-top:14px;">目標を保存</button>
       <div id="step4-save-status" style="font-size:12px;color:var(--text-dim);margin-top:6px;text-align:center;"></div>
       <div style="margin-top:16px">
-        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);letter-spacing:.03em;margin-bottom:6px">ミッション達成率</div>
+        <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);letter-spacing:.03em;margin-bottom:6px">ミッション達成率</div>
         <div class="gauge-row">
           <div class="gauge"><div class="gauge-fill goal" style="width:${s.goalAchievement!==null?s.goalAchievement.toFixed(0):0}%"></div></div>
           <span class="gauge-val">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</span>
         </div>
+      </div>
       </div>
     </div>
 
@@ -226,8 +232,31 @@ function renderMyPageWithPlayer(){
 
   el.innerHTML = html;
 
+  // 折りたたみ状態を復元する
+  [1,2,3].forEach(n=>{
+    const body = document.getElementById('step-body-'+n);
+    const arrow = document.getElementById('step-arrow-'+n);
+    if(!body) return;
+    if(mypageStepCollapsed[n]){
+      body.style.display = 'none';
+      if(arrow) arrow.textContent = '▸';
+    }
+  });
+
   // 未読の対戦通知があればポップアップで通知する
   showMatchNotifications(currentPlayer, p);
+}
+
+// STEPカードの折りたたみ状態(セッション中は保持する)
+let mypageStepCollapsed = {1:false, 2:false, 3:false};
+function toggleMypageStep(n){
+  const body = document.getElementById('step-body-'+n);
+  const arrow = document.getElementById('step-arrow-'+n);
+  if(!body) return;
+  const willCollapse = body.style.display !== 'none';
+  body.style.display = willCollapse ? 'none' : '';
+  if(arrow) arrow.textContent = willCollapse ? '▸' : '▾';
+  mypageStepCollapsed[n] = willCollapse;
 }
 
 function handleIconUpload(input){
@@ -334,12 +363,16 @@ async function saveStep4(){
   const isDone = doneCheckbox.checked;
 
   const player = data.players[currentPlayer];
+  const wasDone = player.mainGoalDone;
   player.mainGoal = goalVal;
   player.mainGoalDone = isDone;
   if(isDone && !player.mainGoalAchievedAt){
     player.mainGoalAchievedAt = new Date().toISOString();
   } else if(!isDone){
     player.mainGoalAchievedAt = null;
+  }
+  if(isDone && !wasDone && goalVal){
+    pushAnnouncement(`🎉 ${currentPlayer}さんが目標を達成しました:「${goalVal}」`);
   }
   
   await saveData();

@@ -526,10 +526,34 @@ function topRankingCardHtml(){
   return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
+// ---- お知らせカード: 予定の登録・目標達成などの最新の出来事を表示 ----
+
+function topAnnouncementsCardHtml(){
+  const items = (data.announcements || []).slice(0, 5);
+  if(items.length===0){
+    return `<div class="top-card-empty-msg">まだお知らせはありません。</div>`;
+  }
+  const itemsHtml = items.map(a=>`
+    <div class="notice-item">
+      <div class="notice-item-text">${escapeHtml(a.text)}</div>
+      <div class="notice-item-time">${formatTimeAgo(a.at)}</div>
+    </div>`).join('');
+  return `<div class="notice-item-list">${itemsHtml}</div>`;
+}
+
 function renderTop(){
   const el = document.getElementById('view-top');
   el.innerHTML = `
     <div class="top-dashboard">
+
+      <div class="top-card top-card--onair">
+        <div class="top-card-head">
+          <div class="top-card-title"><span class="onair-dot" style="width:9px;height:9px;display:inline-block;margin-right:6px;vertical-align:middle;"></span>NOW ON AIR</div>
+        </div>
+        <div class="top-card-body">
+          ${topOnAirCardBodyHtml()}
+        </div>
+      </div>
 
       <div class="top-card top-card--schedule">
         <div class="top-card-head">
@@ -538,6 +562,15 @@ function renderTop(){
         </div>
         <div class="top-card-body top-card-body--schedule">
           ${topScheduleCardHtml()}
+        </div>
+      </div>
+
+      <div class="top-card top-card--notice">
+        <div class="top-card-head">
+          <div class="top-card-title">📢 お知らせ</div>
+        </div>
+        <div class="top-card-body">
+          ${topAnnouncementsCardHtml()}
         </div>
       </div>
 
@@ -551,9 +584,19 @@ function renderTop(){
         </div>
       </div>
 
+      <div class="top-card top-card--mission">
+        <div class="top-card-head">
+          <div class="top-card-title">📝 自分の課題<span class="top-card-title-note">(ランダムに表示中)</span></div>
+          <a class="top-link-btn" href="mypage.html">見る</a>
+        </div>
+        <div class="top-card-body">
+          ${topOwnMissionCardHtml()}
+        </div>
+      </div>
+
       <div class="top-card top-card--ranking">
         <div class="top-card-head">
-          <div class="top-card-title">🏆 ランキング</div>
+          <div class="top-card-title">🏆 勝率ランキング</div>
           <a class="top-link-btn" href="ranking.html">見る</a>
         </div>
         <div class="top-card-body">
@@ -568,25 +611,6 @@ function renderTop(){
         </div>
         <div class="top-card-body">
           ${topMrRankingCardHtml()}
-        </div>
-      </div>
-
-      <div class="top-card top-card--mission">
-        <div class="top-card-head">
-          <div class="top-card-title">🎯 自分のミッション<span class="top-card-title-note">(ランダムに表示中)</span></div>
-          <a class="top-link-btn" href="mypage.html">見る</a>
-        </div>
-        <div class="top-card-body">
-          ${topOwnMissionCardHtml()}
-        </div>
-      </div>
-
-      <div class="top-card top-card--onair">
-        <div class="top-card-head">
-          <div class="top-card-title"><span class="onair-dot" style="width:9px;height:9px;display:inline-block;margin-right:6px;vertical-align:middle;"></span>NOW ON AIR</div>
-        </div>
-        <div class="top-card-body">
-          ${topOnAirCardBodyHtml()}
         </div>
       </div>
 

@@ -60,7 +60,7 @@ function defaultData(){
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
   });
-  return {players, events:[], tournaments:[], admin:{pinHash:''}};
+  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[]};
 }
 
 // データ補正用の共通関数
@@ -151,6 +151,11 @@ function normalizeData(data){
     data.admin = {pinHash:''};
   } else if (data.admin.pinHash === undefined) {
     data.admin.pinHash = '';
+  }
+
+  // announcements(お知らせ)の補正
+  if (!Array.isArray(data.announcements)) {
+    data.announcements = [];
   }
   
   // 古いプロパティを削除
@@ -349,6 +354,29 @@ function computeStats(p){
 }
 
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// ===== TOP画面の「お知らせ」 =====
+// 予定の登録・目標達成など、みんなに知らせたい出来事を記録する。
+// 呼び出し側は追加後に自分でsaveData()すること(他の変更とまとめて1回の保存にするため)。
+function pushAnnouncement(text){
+  if(!Array.isArray(data.announcements)) data.announcements = [];
+  data.announcements.unshift({text, at: new Date().toISOString()});
+  if(data.announcements.length > 30) data.announcements.length = 30;
+}
+
+// ISO日時文字列を「3分前」のような相対表記に変換する
+function formatTimeAgo(iso){
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if(min < 1) return 'たった今';
+  if(min < 60) return `${min}分前`;
+  const hour = Math.floor(min / 60);
+  if(hour < 24) return `${hour}時間前`;
+  const day = Math.floor(hour / 24);
+  if(day < 7) return `${day}日前`;
+  const dt = new Date(iso);
+  return `${dt.getMonth()+1}/${dt.getDate()}`;
+}
 
 function formatDateBadge(dateStr){
   if(!dateStr) return {d:'-', m:''};

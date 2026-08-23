@@ -540,6 +540,7 @@ async function submitEventModal(){
   if(dates.length===0){ flagSectionError('event-date-section'); missing.push('開催日'); }
   if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
   data.events.push({id: genId(), title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}});
+  pushAnnouncement(`📅「${title}」が予定に登録されました`);
   await saveData();
   closeModal();
   renderSchedule();
@@ -646,6 +647,7 @@ async function submitTournamentModal(){
     }
   } else {
     data.tournaments.push({id: genId(), title, description, result, dates});
+    pushAnnouncement(`🏆「${title}」が大会情報に登録されました`);
   }
   tournamentModalTitle = '';
   tournamentModalDesc = '';
