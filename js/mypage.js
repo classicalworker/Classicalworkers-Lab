@@ -1,6 +1,5 @@
 function renderMyPage(){
   const el = document.getElementById('view-mypage');
-  const names = Object.keys(data.players);
 
   currentPlayer = null;
   opponentName = '';
@@ -11,25 +10,14 @@ function renderMyPage(){
   newEventNameInput = '';
   editingMatchIndex = null;
 
-  let selectHtml = `<select id="player-select" onchange="onPlayerChange(this.value)">
-    <option value="" selected>選択してください</option>`;
-  names.forEach(n=>{
-    selectHtml += `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`;
-  });
-  selectHtml += `<option value="__new__">＋ 新規参加者登録</option></select>`;
-
-  let html = `
+  el.innerHTML = `
     <div class="card">
-      <h2><span class="tag">STEP 1</span>自分を選択</h2>
-      ${selectHtml}
-      <div id="new-player-box" style="display:none">
-        <label>参加者名</label>
-        <input type="text" id="new-player-name" placeholder="例:ハヤト">
-        <button class="primary" onclick="registerPlayer()">登録する</button>
+      <h2>マイページ</h2>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.7;">
+        ログイン情報を確認できませんでした。お手数ですが、いったんログアウトして再度ログインしてください。
       </div>
+      <button class="ghost" style="margin-top:10px;" onclick="memberLogout()">ログアウトする</button>
     </div>`;
-
-  el.innerHTML = html;
 }
 
 function renderMyPageWithPlayer(){
@@ -94,20 +82,11 @@ function renderMyPageWithPlayer(){
 
   let html = `
     <div class="card">
-      <h2><span class="tag">STEP 1</span>自分を選択</h2>
-      <select id="player-select" onchange="onPlayerChange(this.value)">
-        <option value="">選択してください</option>
-        ${Object.keys(data.players).map(n=>`<option value="${escapeHtml(n)}" ${currentPlayer===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
-        <option value="__new__">＋ 新規参加者登録</option>
-      </select>
-      <div id="new-player-box" style="display:none">
-        <label>参加者名</label>
-        <input type="text" id="new-player-name" placeholder="例:ハヤト">
-        <button class="primary" onclick="registerPlayer()">登録する</button>
-      </div>
+      <h2>${escapeHtml(currentPlayer)}さんのマイページ</h2>
+      ${currentPlayer !== getLoggedInPlayer() ? `<div style="font-size:12px;color:var(--gold);margin-top:4px;">⚙️ 管理者として編集中です</div>` : ''}
     </div>
     <div class="card">
-      <h2><span class="tag">STEP 2</span>プロフィール</h2>
+      <h2><span class="tag">STEP 1</span>プロフィール</h2>
       <label>操作タイプ</label>
       <div class="choice-group">
         <label class="checkbox-choice ${(p.controlTypes||[]).includes('C')?'checked-cb':''}">
@@ -168,7 +147,7 @@ function renderMyPageWithPlayer(){
     </div>
 
     <div class="card">
-      <h2><span class="tag">STEP 3</span>対戦結果を記録</h2>
+      <h2><span class="tag">STEP 2</span>対戦結果を記録</h2>
       <label>大会名（オプション）</label>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="event-select" style="flex:1;" onchange="onEventSelect(this.value)">
@@ -212,7 +191,7 @@ function renderMyPageWithPlayer(){
     </div>
 
     <div class="card">
-      <h2><span class="tag">STEP 4</span>今シーズンの目標</h2>
+      <h2><span class="tag">STEP 3</span>今シーズンの目標</h2>
       <label>目標(このシーズンで一番達成したいこと)</label>
       <input type="text" id="main-goal-input" value="${escapeHtml(currentGoalValue || p.mainGoal || '')}" placeholder="例:Act毎3000試合こなす">
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer">
@@ -561,48 +540,6 @@ async function saveMatchEdit(idx){
   showToast('更新しました');
 }
 
-function onPlayerChange(v){
-  if(v==='__new__'){
-    document.getElementById('new-player-box').style.display='block';
-    currentPlayer = null;
-  } else if(!v){
-    currentPlayer = null;
-    renderMyPage();
-  } else {
-    requireMemberPin(v, ()=>{
-      currentPlayer = v;
-      opponentName = '';
-      pendingResult = null;
-      savedScoreMe = 0;
-      savedScoreOpp = 0;
-      selectedEventId = '';
-      newEventNameInput = '';
-      editingMatchIndex = null;
-      pendingIconData = null;
-      renderMyPageWithPlayer();
-    }, ()=>{
-      // PIN確認をキャンセル/失敗した場合は選択を戻す
-      currentPlayer = null;
-      renderMyPage();
-    });
-  }
-}
-
-async function registerPlayer(){
-  const input = document.getElementById('new-player-name');
-  const name = input.value.trim();
-  if(!name){ showToast('名前を入力してください'); return; }
-  if(data.players[name]){ showToast('その名前は既に登録されています'); return; }
-  data.players[name] = {
-    matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false,
-    userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[]
-  };
-  currentPlayer = name;
-  await saveData();
-  renderMyPageWithPlayer();
-  showToast(`${name} さんを登録しました`);
-}
-
 function setResult(r){ 
   pendingResult = r; 
   // 大会名保持のため、現在の選択を保存
@@ -802,23 +739,20 @@ async function deleteGoal(idx){
 }
 
 
-let _mypageAutoSelectDone = false;
 function renderCurrentPage(){
-  if(currentPlayer){
+  // 管理者ログイン中に admin.html の「詳細編集」から ?player=名前 で来た場合はその人のページを、
+  // それ以外はログイン中の本人のページのみを表示する(自分以外は見られない)。
+  const adminTarget = new URLSearchParams(location.search).get('player');
+  if(isAdminUnlocked() && adminTarget && data.players[adminTarget]){
+    currentPlayer = adminTarget;
+  } else {
+    currentPlayer = getLoggedInPlayer();
+  }
+
+  if(currentPlayer && data.players[currentPlayer]){
     renderMyPageWithPlayer();
   } else {
     renderMyPage();
-    // 管理者ページの「詳細編集」リンク(?player=名前)から来た場合、自動でその人を選択する。
-    // 管理者ログイン中ならPIN確認なしで、そうでなければ通常通りPIN確認が入る。
-    if(!_mypageAutoSelectDone){
-      _mypageAutoSelectDone = true;
-      const pre = new URLSearchParams(location.search).get('player');
-      if(pre && data.players[pre]){
-        const sel = document.getElementById('player-select');
-        if(sel) sel.value = pre;
-        onPlayerChange(pre);
-      }
-    }
   }
 }
 

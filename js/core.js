@@ -564,12 +564,119 @@ function memberMetaChipsHtml(p){
 // ページ共通の初期化処理(各ページのHTML末尾から呼び出す)
 async function initPage(){
   await loadData();
+
+  if(!isMemberLoggedIn()){
+    showLoginGate(()=>{
+      renderLoginStatusBar();
+      if (typeof renderCurrentPage === 'function') {
+        renderCurrentPage();
+      }
+    });
+    return;
+  }
+
+  renderLoginStatusBar();
   if (typeof renderCurrentPage === 'function') {
     renderCurrentPage();
   }
 }
 
-// ===== 簡易PINコード認証(メンバー本人確認・管理者ログイン用) =====
+// ===== サイト全体のログイン(名前+PINコード) =====
+// サイトを開くとまず「名前+PIN」を聞く。未登録の名前ならその場で新規登録する。
+// ログイン中はこのタブの間、以降ページを移動しても再入力は不要。
+// ログイン中の本人はマイページで自分のデータしか見られない(管理者ログイン中は例外)。
+
+function isMemberLoggedIn(){
+  return !!sessionStorage.getItem('cw_logged_in_player');
+}
+function getLoggedInPlayer(){
+  return sessionStorage.getItem('cw_logged_in_player') || '';
+}
+function setLoggedInPlayer(name){
+  sessionStorage.setItem('cw_logged_in_player', name);
+}
+function memberLogout(){
+  sessionStorage.removeItem('cw_logged_in_player');
+  location.reload();
+}
+
+// サイト全体を覆うログイン画面を表示する。ログイン成功後に onSuccess を呼ぶ。
+function showLoginGate(onSuccess){
+  const existing = document.getElementById('login-gate-overlay');
+  if(existing) existing.remove();
+
+  const names = Object.keys(data.players || {}).sort((a,b)=>a.localeCompare(b,'ja'));
+  const overlay = document.createElement('div');
+  overlay.id = 'login-gate-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
+  overlay.innerHTML = `
+    <div class="card" style="max-width:360px;width:100%;">
+      <h2>🔐 ログイン</h2>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:14px;">
+        お名前とPINコードを入力してください。未登録のお名前の場合は、そのPINコードで新規登録されます。
+      </div>
+      <label>お名前</label>
+      <input type="text" id="login-name-input" list="login-name-list" placeholder="例:ハヤト" autocomplete="off">
+      <datalist id="login-name-list">${names.map(n=>`<option value="${escapeHtml(n)}">`).join('')}</datalist>
+      <label>PINコード(4桁の数字)</label>
+      <input type="text" id="login-pin-input" inputmode="numeric" maxlength="4" placeholder="例:1234">
+      <div id="login-gate-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
+      <button class="primary" id="login-gate-btn">ログイン / 新規登録</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const submit = async ()=>{
+    const nameEl = document.getElementById('login-name-input');
+    const pinEl = document.getElementById('login-pin-input');
+    const errEl = document.getElementById('login-gate-error');
+    const name = nameEl.value.trim();
+    const pin = pinEl.value.trim();
+    if(!name){ errEl.textContent='名前を入力してください'; errEl.style.display='block'; return; }
+    if(!/^\d{4}$/.test(pin)){ errEl.textContent='PINコードは4桁の数字で入力してください'; errEl.style.display='block'; return; }
+
+    const h = await hashPin(pin);
+    const existingPlayer = data.players[name];
+    if(existingPlayer){
+      if(!existingPlayer.pinHash){
+        // 既存メンバーだがPIN未設定の場合はこのPINをそのまま登録する
+        existingPlayer.pinHash = h;
+        await saveData();
+      } else if(existingPlayer.pinHash !== h){
+        errEl.textContent = 'PINコードが一致しません'; errEl.style.display = 'block'; return;
+      }
+    } else {
+      data.players[name] = {
+        matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+        userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
+        streamUrl:'', streamTitle:'', isLive:false,
+        twitchLogin:'', pinHash:h
+      };
+      await saveData();
+    }
+    setLoggedInPlayer(name);
+    overlay.remove();
+    onSuccess();
+  };
+
+  document.getElementById('login-gate-btn').onclick = submit;
+  document.getElementById('login-pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+}
+
+// ヘッダー付近に「〇〇さんとしてログイン中」のバーを表示する
+function renderLoginStatusBar(){
+  const tabs = document.querySelector('.tabs');
+  if(!tabs) return;
+  let bar = document.getElementById('login-status-bar');
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'login-status-bar';
+    bar.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);margin:-6px 2px 10px;';
+    tabs.insertAdjacentElement('beforebegin', bar);
+  }
+  bar.innerHTML = `👤 ${escapeHtml(getLoggedInPlayer())}さんとしてログイン中　<button class="ghost" style="padding:3px 10px;font-size:11px;" onclick="memberLogout()">ログアウト</button>`;
+}
+
+// ===== 簡易PINコード認証(管理者ログイン用) =====
 // ※このPIN機能はあくまで「身内の誤操作・悪ふざけ防止」を目的とした簡易的なものです。
 // データベースのセキュリティルール上は auth!=null であれば誰でも読み書き可能なため、
 // 本気で突破しようとする第三者からの保護までは想定していません。
@@ -590,86 +697,6 @@ function setAdminUnlocked(){
 }
 function adminLogout(){
   sessionStorage.removeItem('cw_admin_unlocked');
-}
-
-// 指定した名前が、このタブで本人確認(PIN入力)済みかどうか
-function isMemberUnlocked(name){
-  return sessionStorage.getItem('cw_pin_unlocked_' + name) === '1';
-}
-function setMemberUnlocked(name){
-  sessionStorage.setItem('cw_pin_unlocked_' + name, '1');
-}
-
-// 自分のマイページを開く前に呼び出す関門。
-// PIN未設定なら「PINを新規設定」、設定済みなら「PINを入力」を求める。
-// 管理者としてログイン中の場合はPIN確認をスキップして即座に onSuccess を呼ぶ。
-// onCancel が渡された場合、閉じるボタンで呼び出す(モーダルを閉じた後に選択状態を戻す等に使用)。
-function requireMemberPin(name, onSuccess, onCancel){
-  const p = data.players[name];
-  if(!p){ if(onCancel) onCancel(); return; }
-
-  if(isAdminUnlocked() || isMemberUnlocked(name)){
-    onSuccess();
-    return;
-  }
-
-  const handleClose = ()=>{ closeModal(); if(onCancel) onCancel(); };
-
-  if(!p.pinHash){
-    openModal(`
-      <div class="modal-head">
-        <h2>🔐 PINコードを設定</h2>
-        <button class="modal-close" id="pin-modal-close">×</button>
-      </div>
-      <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">
-        ${escapeHtml(name)}さんのマイページはまだPIN未設定です。次回以降ご自身しか編集できないように、4桁の数字を設定してください。
-      </div>
-      <label>PINコード(4桁の数字)</label>
-      <input type="text" id="pin-set-1" inputmode="numeric" maxlength="4" placeholder="例:1234">
-      <label>もう一度入力</label>
-      <input type="text" id="pin-set-2" inputmode="numeric" maxlength="4" placeholder="確認用">
-      <div id="pin-set-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
-      <button class="primary" id="pin-set-btn">設定する</button>
-    `);
-    document.getElementById('pin-modal-close').onclick = handleClose;
-    document.getElementById('pin-set-btn').onclick = async ()=>{
-      const v1 = document.getElementById('pin-set-1').value.trim();
-      const v2 = document.getElementById('pin-set-2').value.trim();
-      const errEl = document.getElementById('pin-set-error');
-      if(!/^\d{4}$/.test(v1)){ errEl.textContent='4桁の数字で入力してください'; errEl.style.display='block'; return; }
-      if(v1!==v2){ errEl.textContent='入力が一致しません'; errEl.style.display='block'; return; }
-      p.pinHash = await hashPin(v1);
-      await saveData();
-      setMemberUnlocked(name);
-      closeModal();
-      onSuccess();
-    };
-    return;
-  }
-
-  openModal(`
-    <div class="modal-head">
-      <h2>🔐 PINコードを入力</h2>
-      <button class="modal-close" id="pin-modal-close">×</button>
-    </div>
-    <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">
-      ${escapeHtml(name)}さん本人確認のため、設定済みのPINコードを入力してください。
-    </div>
-    <input type="text" id="pin-check" inputmode="numeric" maxlength="4" placeholder="PINコード">
-    <div id="pin-check-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
-    <button class="primary" id="pin-check-btn">確認する</button>
-    <div style="font-size:11px;color:var(--text-dim);margin-top:10px;">PINを忘れた場合はサブリーダー(管理者)にリセットを依頼してください。</div>
-  `);
-  document.getElementById('pin-modal-close').onclick = handleClose;
-  document.getElementById('pin-check-btn').onclick = async ()=>{
-    const v = document.getElementById('pin-check').value.trim();
-    const errEl = document.getElementById('pin-check-error');
-    const h = await hashPin(v);
-    if(h !== p.pinHash){ errEl.textContent='PINコードが一致しません'; errEl.style.display='block'; return; }
-    setMemberUnlocked(name);
-    closeModal();
-    onSuccess();
-  };
 }
 
 // 管理者ログインの関門。管理者PIN未設定なら新規設定、設定済みなら入力を求める。

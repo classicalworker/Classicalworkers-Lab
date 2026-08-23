@@ -173,3 +173,8 @@ async function adminUpdatePlayerField(name, field, value){
   await saveData();
   showToast('更新しました');
 }
+
+(async function(){
+  document.getElementById('view-admin').innerHTML = '<div class="empty">読み込み中...</div>';
+  await initPage();
+})();
