@@ -118,9 +118,9 @@ function topLoadOnAirTitles(){
   });
 }
 
-function topOnAirBannerHtml(){
+function topOnAirCardBodyHtml(){
   const entries = topGetLiveEntries();
-  if(entries.length===0) return '';
+  if(entries.length===0) return `<div class="top-card-empty-msg">現在配信中のメンバーはいません。</div>`;
 
   const itemsHtml = entries.map((entry, idx)=>{
     const { name: n, url, platform, auto } = entry;
@@ -156,14 +156,7 @@ function topOnAirBannerHtml(){
       </div>`;
   }).join('');
 
-  return `
-    <div class="onair-banner">
-      <div class="onair-banner-head">
-        <span class="onair-dot"></span>
-        <span class="onair-label">NOW ON AIR</span>
-      </div>
-      <div class="onair-list">${itemsHtml}</div>
-    </div>`;
+  return `<div class="onair-list">${itemsHtml}</div>`;
 }
 
 // ---- 予定カード: 直近の予定の出席確認サマリー + ミニカレンダー ----
@@ -430,6 +423,77 @@ function topGoalsCardHtml(){
   return `<div class="mission-list">${itemsHtml}</div>`;
 }
 
+// ---- MRランキングカード: 最高MRの上位3名を表示 ----
+
+function topMrRankingCardHtml(){
+  const names = Object.keys(data.players);
+  const withMr = names
+    .map(n => ({name:n, mr: parseInt(data.players[n].maxMR, 10)}))
+    .filter(p => !isNaN(p.mr) && p.mr > 0)
+    .sort((a,b)=> b.mr - a.mr);
+
+  if(withMr.length===0){
+    return `<div class="top-card-empty-msg">まだ最高MRが登録されていません。</div>`;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const itemsHtml = withMr.slice(0,3).map((p,i)=>{
+    const player = data.players[p.name];
+    const iconHtml = player.icon
+      ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
+      : `<div class="top-rank-icon-ph">👤</div>`;
+    return `
+      <div class="top-rank-item rank${i+1}">
+        <span class="top-rank-medal">${medals[i]}</span>
+        ${iconHtml}
+        <div class="top-rank-body">
+          <span class="top-rank-name">${escapeHtml(p.name)}</span>
+          <span class="top-rank-rate">MR ${p.mr}</span>
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="top-rank-list">${itemsHtml}</div>`;
+}
+
+// ---- 自分のミッションカード: ログイン中の本人のミッションを1つランダム表示(本人にのみ表示) ----
+// (再描画のたびにシャッフルし直さないよう、選出結果をキャッシュする)
+
+let topCachedOwnMissionIdx = null;
+
+function topOwnMissionCardHtml(){
+  const me = getLoggedInPlayer();
+  const p = data.players[me];
+  if(!p){
+    return `<div class="top-card-empty-msg">ログイン情報を確認できませんでした。</div>`;
+  }
+  const goals = p.goals || [];
+  if(goals.length===0){
+    topCachedOwnMissionIdx = null;
+    return `<div class="top-card-empty-msg">まだミッションが設定されていません。マイページから設定してください。</div>`;
+  }
+  if(topCachedOwnMissionIdx===null || topCachedOwnMissionIdx>=goals.length){
+    topCachedOwnMissionIdx = Math.floor(Math.random()*goals.length);
+  }
+  const g = goals[topCachedOwnMissionIdx];
+  const iconHtml = p.icon
+    ? `<img class="mission-icon" src="${p.icon}" alt="">`
+    : `<div class="mission-icon-ph">👤</div>`;
+  const statusHtml = g.done
+    ? `<span class="mission-status done">✅ 達成済み</span>`
+    : `<span class="mission-status active">🔥 取組中</span>`;
+  return `
+    <div class="mission-list">
+      <div class="mission-item">
+        ${iconHtml}
+        <div class="mission-body">
+          <div class="mission-name">${escapeHtml(me)}</div>
+          <div class="mission-text">${escapeHtml(g.text)}</div>
+          ${statusHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
 // ---- ランキングカード: 勝率3位まで表示 ----
 
 function topRankingCardHtml(){
@@ -462,47 +526,9 @@ function topRankingCardHtml(){
   return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
-// ---- メンバーカード: ランダムで3人をピックアップ表示 ----
-// (再描画のたびにシャッフルし直さないよう、選出結果をキャッシュする)
-
-let topCachedMemberNames = null;
-
-function topMembersCardHtml(){
-  const names = Object.keys(data.players);
-  if(names.length===0){
-    topCachedMemberNames = null;
-    return `<div class="top-card-empty-msg">まだ参加者がいません。マイページから登録してください。</div>`;
-  }
-  if(!topCachedMemberNames || !topCachedMemberNames.every(n => names.includes(n))){
-    topCachedMemberNames = topShuffle(names).slice(0,3);
-  }
-  const picked = topCachedMemberNames;
-  const itemsHtml = picked.map(n=>{
-    const p = data.players[n];
-    const s = computeStats(p);
-    const iconHtml = p.icon
-      ? `<img class="top-spotlight-icon" src="${p.icon}" alt="">`
-      : `<div class="top-spotlight-icon-ph">👤</div>`;
-    return `
-      <div class="top-spotlight-item">
-        ${iconHtml}
-        <div class="top-spotlight-body">
-          <div class="top-spotlight-top">
-            <span class="top-spotlight-name">${escapeHtml(n)}</span>
-            ${p.maxMR ? `<span class="top-spotlight-mr">MR ${escapeHtml(p.maxMR)}</span>` : ''}
-          </div>
-          <div class="top-spotlight-record">${s.total}戦 ${s.wins}勝</div>
-        </div>
-      </div>`;
-  }).join('');
-  return `<div class="top-spotlight-list">${itemsHtml}</div>
-    <div class="top-member-count">登録メンバー数: <span class="top-card-highlight">${names.length}名</span></div>`;
-}
-
 function renderTop(){
   const el = document.getElementById('view-top');
   el.innerHTML = `
-    ${topOnAirBannerHtml()}
     <div class="top-dashboard">
 
       <div class="top-card top-card--schedule">
@@ -517,7 +543,7 @@ function renderTop(){
 
       <div class="top-card top-card--goals">
         <div class="top-card-head">
-          <div class="top-card-title">📝 本日の課題<span class="top-card-title-note">(ランダムに表示中)</span></div>
+          <div class="top-card-title">📝 みんなの課題<span class="top-card-title-note">(ランダムに表示中)</span></div>
           <a class="top-link-btn" href="goals.html">見る</a>
         </div>
         <div class="top-card-body">
@@ -535,13 +561,32 @@ function renderTop(){
         </div>
       </div>
 
-      <div class="top-card top-card--members">
+      <div class="top-card top-card--mrranking">
         <div class="top-card-head">
-          <div class="top-card-title">👥 メンバー<span class="top-card-title-note">(ランダムに表示中)</span></div>
-          <a class="top-link-btn" href="members.html">見る</a>
+          <div class="top-card-title">📊 MRランキング</div>
+          <a class="top-link-btn" href="ranking.html">見る</a>
         </div>
         <div class="top-card-body">
-          ${topMembersCardHtml()}
+          ${topMrRankingCardHtml()}
+        </div>
+      </div>
+
+      <div class="top-card top-card--mission">
+        <div class="top-card-head">
+          <div class="top-card-title">🎯 自分のミッション<span class="top-card-title-note">(ランダムに表示中)</span></div>
+          <a class="top-link-btn" href="mypage.html">見る</a>
+        </div>
+        <div class="top-card-body">
+          ${topOwnMissionCardHtml()}
+        </div>
+      </div>
+
+      <div class="top-card top-card--onair">
+        <div class="top-card-head">
+          <div class="top-card-title"><span class="onair-dot" style="width:9px;height:9px;display:inline-block;margin-right:6px;vertical-align:middle;"></span>NOW ON AIR</div>
+        </div>
+        <div class="top-card-body">
+          ${topOnAirCardBodyHtml()}
         </div>
       </div>
 

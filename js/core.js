@@ -58,7 +58,7 @@ function defaultData(){
     matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
-    twitchLogin:'', pinHash:''
+    twitchLogin:'', pin:''
   });
   return {players, events:[], tournaments:[], admin:{pinHash:''}};
 }
@@ -111,7 +111,7 @@ function normalizeData(data){
       if (p.streamTitle === undefined) p.streamTitle = '';
       if (p.isLive === undefined) p.isLive = false;
       if (p.twitchLogin === undefined) p.twitchLogin = '';
-      if (p.pinHash === undefined) p.pinHash = '';
+      if (p.pin === undefined) p.pin = '';
       
       // matches内の各エントリも補正
       p.matches.forEach(m => {
@@ -601,65 +601,135 @@ function memberLogout(){
 }
 
 // サイト全体を覆うログイン画面を表示する。ログイン成功後に onSuccess を呼ぶ。
+// メンバーとしてのログイン(名前+PIN)のほか、「管理者としてログイン」も選べる。
 function showLoginGate(onSuccess){
   const existing = document.getElementById('login-gate-overlay');
   if(existing) existing.remove();
 
-  const names = Object.keys(data.players || {}).sort((a,b)=>a.localeCompare(b,'ja'));
   const overlay = document.createElement('div');
   overlay.id = 'login-gate-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
-  overlay.innerHTML = `
-    <div class="card" style="max-width:360px;width:100%;">
+  document.body.appendChild(overlay);
+
+  const cardHtml = inner => `<div class="card" style="max-width:360px;width:100%;">${inner}</div>`;
+
+  function renderMemberMode(){
+    const names = Object.keys(data.players || {}).sort((a,b)=>a.localeCompare(b,'ja'));
+    overlay.innerHTML = cardHtml(`
       <h2>🔐 ログイン</h2>
       <div style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:14px;">
-        お名前とPINコードを入力してください。未登録のお名前の場合は、そのPINコードで新規登録されます。
+        お名前とPINコードを入力してください。初めての方は「＋ 新しい名前を登録」を選んでください。
       </div>
       <label>お名前</label>
-      <input type="text" id="login-name-input" list="login-name-list" placeholder="例:ハヤト" autocomplete="off">
-      <datalist id="login-name-list">${names.map(n=>`<option value="${escapeHtml(n)}">`).join('')}</datalist>
+      <select id="login-name-select">
+        <option value="" selected>選択してください</option>
+        ${names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}
+        <option value="__new__">＋ 新しい名前を登録</option>
+      </select>
+      <div id="login-new-name-box" style="display:none">
+        <label>新しいお名前</label>
+        <input type="text" id="login-new-name-input" placeholder="例:ハヤト" autocomplete="off">
+      </div>
       <label>PINコード(4桁の数字)</label>
       <input type="text" id="login-pin-input" inputmode="numeric" maxlength="4" placeholder="例:1234">
       <div id="login-gate-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
       <button class="primary" id="login-gate-btn">ログイン / 新規登録</button>
-    </div>`;
-  document.body.appendChild(overlay);
+      <button class="ghost" style="margin-top:8px;" id="login-gate-admin-link">⚙️ 管理者としてログイン</button>
+    `);
 
-  const submit = async ()=>{
-    const nameEl = document.getElementById('login-name-input');
-    const pinEl = document.getElementById('login-pin-input');
-    const errEl = document.getElementById('login-gate-error');
-    const name = nameEl.value.trim();
-    const pin = pinEl.value.trim();
-    if(!name){ errEl.textContent='名前を入力してください'; errEl.style.display='block'; return; }
-    if(!/^\d{4}$/.test(pin)){ errEl.textContent='PINコードは4桁の数字で入力してください'; errEl.style.display='block'; return; }
+    document.getElementById('login-name-select').onchange = function(){
+      document.getElementById('login-new-name-box').style.display = (this.value === '__new__') ? 'block' : 'none';
+    };
+    document.getElementById('login-gate-admin-link').onclick = renderAdminMode;
 
-    const h = await hashPin(pin);
-    const existingPlayer = data.players[name];
-    if(existingPlayer){
-      if(!existingPlayer.pinHash){
-        // 既存メンバーだがPIN未設定の場合はこのPINをそのまま登録する
-        existingPlayer.pinHash = h;
+    const submit = async ()=>{
+      const selectEl = document.getElementById('login-name-select');
+      const pinEl = document.getElementById('login-pin-input');
+      const errEl = document.getElementById('login-gate-error');
+      const isNew = selectEl.value === '__new__';
+      const name = isNew ? document.getElementById('login-new-name-input').value.trim() : selectEl.value;
+      const pin = pinEl.value.trim();
+      if(!name){ errEl.textContent='名前を選択または入力してください'; errEl.style.display='block'; return; }
+      if(isNew && data.players[name]){ errEl.textContent='その名前は既に登録されています。プルダウンから選んでください'; errEl.style.display='block'; return; }
+      if(!/^\d{4}$/.test(pin)){ errEl.textContent='PINコードは4桁の数字で入力してください'; errEl.style.display='block'; return; }
+
+      const existingPlayer = data.players[name];
+      if(existingPlayer){
+        if(!existingPlayer.pin){
+          // 既存メンバーだがPIN未設定の場合はこのPINをそのまま登録する
+          existingPlayer.pin = pin;
+          await saveData();
+        } else if(existingPlayer.pin !== pin){
+          errEl.textContent = 'PINコードが一致しません'; errEl.style.display = 'block'; return;
+        }
+      } else {
+        data.players[name] = {
+          matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+          userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
+          streamUrl:'', streamTitle:'', isLive:false,
+          twitchLogin:'', pin:pin
+        };
         await saveData();
-      } else if(existingPlayer.pinHash !== h){
-        errEl.textContent = 'PINコードが一致しません'; errEl.style.display = 'block'; return;
       }
-    } else {
-      data.players[name] = {
-        matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
-        userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
-        streamUrl:'', streamTitle:'', isLive:false,
-        twitchLogin:'', pinHash:h
-      };
-      await saveData();
-    }
-    setLoggedInPlayer(name);
-    overlay.remove();
-    onSuccess();
-  };
+      setLoggedInPlayer(name);
+      overlay.remove();
+      onSuccess();
+    };
 
-  document.getElementById('login-gate-btn').onclick = submit;
-  document.getElementById('login-pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    document.getElementById('login-gate-btn').onclick = submit;
+    document.getElementById('login-pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  }
+
+  function renderAdminMode(){
+    const hasPinSet = !!(data.admin && data.admin.pinHash);
+    overlay.innerHTML = cardHtml(`
+      <h2>⚙️ 管理者としてログイン</h2>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:14px;">
+        ${hasPinSet
+          ? 'サブリーダー間で共有している管理者PINを入力してください。'
+          : 'このタブではまだ管理者PINが設定されていません。最初にPINを設定してください。'}
+      </div>
+      ${hasPinSet ? `
+        <label>管理者PIN(4桁の数字)</label>
+        <input type="text" id="admin-gate-pin-1" inputmode="numeric" maxlength="4" placeholder="例:1234">
+      ` : `
+        <label>管理者PIN(4桁の数字)</label>
+        <input type="text" id="admin-gate-pin-1" inputmode="numeric" maxlength="4" placeholder="例:1234">
+        <label>もう一度入力</label>
+        <input type="text" id="admin-gate-pin-2" inputmode="numeric" maxlength="4" placeholder="確認用">
+      `}
+      <div id="admin-gate-error" style="color:var(--loss);font-size:12px;margin-top:6px;display:none;"></div>
+      <button class="primary" id="admin-gate-btn">${hasPinSet ? 'ログイン' : '設定してログイン'}</button>
+      <button class="ghost" style="margin-top:8px;" id="admin-gate-back-link">← メンバーログインに戻る</button>
+    `);
+
+    document.getElementById('admin-gate-back-link').onclick = renderMemberMode;
+
+    const submitAdmin = async ()=>{
+      const errEl = document.getElementById('admin-gate-error');
+      const v1 = document.getElementById('admin-gate-pin-1').value.trim();
+
+      if(!hasPinSet){
+        const v2 = document.getElementById('admin-gate-pin-2').value.trim();
+        if(!/^\d{4}$/.test(v1)){ errEl.textContent='4桁の数字で入力してください'; errEl.style.display='block'; return; }
+        if(v1!==v2){ errEl.textContent='入力が一致しません'; errEl.style.display='block'; return; }
+        if(!data.admin) data.admin = {pinHash:''};
+        data.admin.pinHash = await hashPin(v1);
+        await saveData();
+      } else {
+        const h = await hashPin(v1);
+        if(h !== data.admin.pinHash){ errEl.textContent='PINコードが一致しません'; errEl.style.display='block'; return; }
+      }
+      setAdminUnlocked();
+      setLoggedInPlayer('__admin__');
+      overlay.remove();
+      onSuccess();
+    };
+
+    document.getElementById('admin-gate-btn').onclick = submitAdmin;
+  }
+
+  renderMemberMode();
 }
 
 // ヘッダー付近に「〇〇さんとしてログイン中」のバーを表示する

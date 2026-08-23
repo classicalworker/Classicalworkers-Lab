@@ -396,26 +396,7 @@
   }
   .notice-section-title:first-child{margin-top:0;}
 
-  /* ==== TOPページ: NOW ON AIRバナー(サムネイル付き・目立つデザイン) ==== */
-  .onair-banner{
-    display:flex;flex-direction:column;gap:12px;
-    background:linear-gradient(135deg, var(--navy) 0%, #241d0d 60%, var(--navy) 100%);
-    border:1px solid rgba(var(--gold-rgb),.5);
-    border-radius:14px;
-    padding:16px 18px;
-    margin-bottom:18px;
-    box-shadow:0 6px 24px rgba(var(--gold-rgb),.28), 0 0 0 1px rgba(255,255,255,.04) inset;
-    position:relative;
-    overflow:hidden;
-  }
-  .onair-banner::before{
-    content:'';position:absolute;inset:0;
-    background:radial-gradient(circle at 0% 0%, rgba(var(--gold-rgb),.28), transparent 55%);
-    pointer-events:none;
-  }
-  .onair-banner-head{
-    display:flex;align-items:center;gap:10px;position:relative;z-index:1;
-  }
+  /* ==== TOPページ: NOW ON AIRカード(サムネイル付き) ==== */
   .onair-dot{
     width:13px;height:13px;border-radius:50%;background:var(--gold);
     box-shadow:0 0 10px rgba(var(--gold-rgb),.9);
@@ -427,13 +408,8 @@
     70%{box-shadow:0 0 0 10px rgba(var(--gold-rgb),0);}
     100%{box-shadow:0 0 0 0 rgba(var(--gold-rgb),0);}
   }
-  .onair-label{
-    font-family:var(--font-display);font-weight:900;font-size:16px;
-    letter-spacing:.18em;color:#fff;
-    text-shadow:0 0 12px rgba(var(--gold-rgb),.8);
-  }
   .onair-list{
-    display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;
+    display:grid;grid-template-columns:1fr;gap:10px;
     position:relative;z-index:1;
   }
   .onair-item{
@@ -478,7 +454,7 @@
     .onair-item-link{align-self:center;padding:4px 10px;}
   }
 
-  /* ---- TOPページ: ダッシュボードグリッド(PC優先レスポンシブ) ---- */
+  /* ---- TOPページ: ダッシュボードグリッド(2列3段・6枚均等) ---- */
   .top-dashboard{
     display:grid;
     grid-template-columns:1fr;
@@ -486,16 +462,18 @@
       "schedule"
       "goals"
       "ranking"
-      "members";
+      "mrranking"
+      "mission"
+      "onair";
     gap:16px;
   }
-  @media (min-width:860px){
+  @media (min-width:640px){
     .top-dashboard{
-      grid-template-columns:1.3fr 1fr;
+      grid-template-columns:1fr 1fr;
       grid-template-areas:
         "schedule goals"
-        "schedule ranking"
-        "schedule members";
+        "ranking mrranking"
+        "mission onair";
       align-items:start;
     }
   }
@@ -503,7 +481,9 @@
   .top-card--schedule{grid-area:schedule;}
   .top-card--goals{grid-area:goals;}
   .top-card--ranking{grid-area:ranking;}
-  .top-card--members{grid-area:members;}
+  .top-card--mrranking{grid-area:mrranking;}
+  .top-card--mission{grid-area:mission;}
+  .top-card--onair{grid-area:onair;}
 
   .top-card{
     background:var(--panel);border:1px solid var(--panel-border);

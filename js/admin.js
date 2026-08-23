@@ -67,11 +67,12 @@ function adminMemberManageHtml(){
   const rowsHtml = names.length ? names.map(n=>{
     const p = data.players[n];
     const matchCount = (p.matches||[]).length;
+    const pinText = p.pin ? p.pin : '未設定';
     return `
       <div class="history-item">
         <div class="history-main">
           <div class="top"><span class="names">${escapeHtml(n)}</span></div>
-          <div class="score-display">対戦数 ${matchCount}</div>
+          <div class="score-display">対戦数 ${matchCount}　／　PIN: <span class="top-card-highlight">${escapeHtml(pinText)}</span></div>
         </div>
         <button class="ghost" onclick="adminDeleteMember('${escapeHtml(n)}')">削除</button>
       </div>`;
@@ -86,8 +87,9 @@ function adminMemberManageHtml(){
         <input type="text" id="admin-new-member-name" placeholder="例:ハヤト">
         <button class="primary" style="margin-top:0;width:auto;padding:10px 18px;" onclick="adminAddMember()">追加</button>
       </div>
-      <div style="font-size:11px;color:var(--text-dim);margin-top:8px;">
-        削除すると、そのメンバーの対戦履歴・目標もすべて削除されます。元に戻せないのでご注意ください。
+      <div style="font-size:12px;color:var(--text-dim);margin-top:8px;line-height:1.6;">
+        削除すると、そのメンバーの対戦履歴・目標もすべて削除されます。元に戻せないのでご注意ください。<br>
+        PINコードはメンバーがログイン時に設定するとここに表示されます(平文で保存されるため、管理者以外に見られないようご注意ください)。
       </div>
     </div>`;
 }
@@ -101,7 +103,7 @@ async function adminAddMember(){
     matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
-    twitchLogin:'', pinHash:''
+    twitchLogin:'', pin:''
   };
   await saveData();
   renderAdmin();
