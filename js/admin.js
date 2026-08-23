@@ -58,6 +58,7 @@ function adminDashboardHtml(){
     ${adminMemberManageHtml()}
     ${adminScheduleShortcutHtml()}
     ${adminMemberEditHtml()}
+    ${adminAnnouncementsHtml()}
   `;
 }
 
@@ -175,6 +176,62 @@ async function adminUpdatePlayerField(name, field, value){
   p[field] = value;
   await saveData();
   showToast('更新しました');
+}
+
+// ---- ④ お知らせの手動追加・ピン止め・削除 ----
+function adminAnnouncementsHtml(){
+  const items = sortedAnnouncements();
+  const rowsHtml = items.length ? items.map(a=>`
+    <div class="notice-item">
+      <div style="flex:1;min-width:0;">
+        <div class="notice-item-text">${a.pinned ? '📌 ' : ''}${escapeHtml(a.text)}</div>
+        <div class="notice-item-time">${formatTimeAgo(a.at)}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="ghost" onclick="adminTogglePinAnnouncement('${a.id}')">${a.pinned ? 'ピン解除' : '📌 ピン止め'}</button>
+        <button class="ghost" onclick="adminDeleteAnnouncement('${a.id}')">削除</button>
+      </div>
+    </div>`).join('') : '<div class="empty">お知らせはありません</div>';
+
+  return `
+    <div class="card">
+      <h2><span class="tag">STEP 4</span>お知らせの手動追加・削除</h2>
+      <label>お知らせ本文</label>
+      <input type="text" id="admin-new-announcement-text" placeholder="例:来月のオフ会について相談中です">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer">
+        <input type="checkbox" id="admin-new-announcement-pin">
+        <span style="color:var(--text)">📌 ピン止めする(TOP画面の一番上に固定表示)</span>
+      </label>
+      <button class="primary" style="margin-top:10px;" onclick="adminAddAnnouncement()">お知らせを追加</button>
+      <div style="max-height:340px;overflow-y:auto;margin-top:14px;display:flex;flex-direction:column;gap:8px;">${rowsHtml}</div>
+    </div>`;
+}
+
+async function adminAddAnnouncement(){
+  const input = document.getElementById('admin-new-announcement-text');
+  const pinCb = document.getElementById('admin-new-announcement-pin');
+  const text = input.value.trim();
+  if(!text){ showToast('お知らせ内容を入力してください'); return; }
+  pushAnnouncement(text, pinCb.checked);
+  await saveData();
+  renderAdmin();
+  showToast('お知らせを追加しました');
+}
+
+async function adminTogglePinAnnouncement(id){
+  const a = (data.announcements||[]).find(a=>a.id===id);
+  if(!a) return;
+  a.pinned = !a.pinned;
+  await saveData();
+  renderAdmin();
+}
+
+async function adminDeleteAnnouncement(id){
+  if(!confirm('このお知らせを削除しますか?')) return;
+  data.announcements = (data.announcements||[]).filter(a=>a.id!==id);
+  await saveData();
+  renderAdmin();
+  showToast('削除しました');
 }
 
 (async function(){

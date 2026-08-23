@@ -529,13 +529,13 @@ function topRankingCardHtml(){
 // ---- お知らせカード: 予定の登録・目標達成などの最新の出来事を表示 ----
 
 function topAnnouncementsCardHtml(){
-  const items = (data.announcements || []).slice(0, 5);
+  const items = sortedAnnouncements().slice(0, 5);
   if(items.length===0){
     return `<div class="top-card-empty-msg">まだお知らせはありません。</div>`;
   }
   const itemsHtml = items.map(a=>`
     <div class="notice-item">
-      <div class="notice-item-text">${escapeHtml(a.text)}</div>
+      <div class="notice-item-text">${a.pinned ? '📌 ' : ''}${escapeHtml(a.text)}</div>
       <div class="notice-item-time">${formatTimeAgo(a.at)}</div>
     </div>`).join('');
   return `<div class="notice-item-list">${itemsHtml}</div>`;

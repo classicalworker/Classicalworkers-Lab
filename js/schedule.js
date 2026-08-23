@@ -193,7 +193,7 @@ function eventCardHtml(ev, onlyDay){
       const chipRow = (label, list, cls) => `
         <div class="attend-breakdown-row">
           <span class="attend-breakdown-label">${label}</span>
-          <span class="attend-breakdown-names">${list.length ? list.map(n=>`<span class="name-chip ${cls}">${escapeHtml(n)}</span>`).join('') : '<span class="attend-breakdown-empty">–</span>'}</span>
+          <span class="attend-breakdown-names">${list.length ? list.map(n=>`<span class="name-chip ${cls}">${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`).join('') : '<span class="attend-breakdown-empty">–</span>'}</span>
         </div>`;
       return `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--panel-border)">
@@ -328,6 +328,22 @@ async function setAttendance(eventId, day, status){
   if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
     openDayModal(day);
   }
+}
+
+// 管理者権限: 特定メンバーの出欠回答を削除する
+function adminDeleteAttendance(eventId, day, name){
+  requireAdminPin(async ()=>{
+    const ev = data.events.find(e=>e.id===eventId);
+    if(!ev || !ev.attendance || !ev.attendance[day]) return;
+    if(!confirm(`${name}さんの出欠回答を削除しますか?`)) return;
+    delete ev.attendance[day][name];
+    await saveData();
+    renderSchedule();
+    if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
+      openDayModal(day);
+    }
+    showToast('出欠回答を削除しました');
+  });
 }
 
 function deleteTournament(id){
@@ -540,7 +556,12 @@ async function submitEventModal(){
   if(dates.length===0){ flagSectionError('event-date-section'); missing.push('開催日'); }
   if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
   data.events.push({id: genId(), title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}});
-  pushAnnouncement(`📅「${title}」が予定に登録されました`);
+  {
+    const dateText = dates.map(d=>formatDayShort(d)).join('、');
+    const deadlineText = attendanceDeadline ? `／締切:${formatDayShort(attendanceDeadline)}` : '';
+    const attendText = eventModalAttendanceRequired ? '／出欠確認あり' : '／出欠確認なし';
+    pushAnnouncement(`📅「${title}」が予定に登録されました(${dateText}${deadlineText}${attendText})`);
+  }
   await saveData();
   closeModal();
   renderSchedule();

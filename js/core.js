@@ -358,10 +358,22 @@ function genId(){ return Date.now().toString(36) + Math.random().toString(36).sl
 // ===== TOP画面の「お知らせ」 =====
 // 予定の登録・目標達成など、みんなに知らせたい出来事を記録する。
 // 呼び出し側は追加後に自分でsaveData()すること(他の変更とまとめて1回の保存にするため)。
-function pushAnnouncement(text){
+function pushAnnouncement(text, pinned){
   if(!Array.isArray(data.announcements)) data.announcements = [];
-  data.announcements.unshift({text, at: new Date().toISOString()});
-  if(data.announcements.length > 30) data.announcements.length = 30;
+  data.announcements.unshift({id: genId(), text, at: new Date().toISOString(), pinned: !!pinned});
+  // ピン止めしたものは件数上限の対象外にし、それ以外は最大30件まで保持する
+  const pinnedItems = data.announcements.filter(a=>a.pinned);
+  let others = data.announcements.filter(a=>!a.pinned);
+  if(others.length > 30) others = others.slice(0, 30);
+  data.announcements = pinnedItems.concat(others);
+}
+
+// お知らせをピン止め優先→新しい順に並べ替えて返す
+function sortedAnnouncements(){
+  return (data.announcements || []).slice().sort((a,b)=>{
+    if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.at) - new Date(a.at);
+  });
 }
 
 // ISO日時文字列を「3分前」のような相対表記に変換する

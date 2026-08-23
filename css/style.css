@@ -483,6 +483,13 @@
     }
   }
   .top-dashboard .top-card{margin-bottom:0;}
+  @media (min-width:640px){
+    /* 横並びペアの高さを揃えて、行内に不自然な空白ができないようにする
+       (「みんなの課題」「自分の課題」は内容量に応じて枠を変えたいので対象外) */
+    .top-card--schedule, .top-card--notice, .top-card--ranking, .top-card--mrranking{
+      height:100%;
+    }
+  }
   .top-card--schedule{grid-area:schedule;}
   .top-card--notice{grid-area:notice;}
   .top-card--goals{grid-area:goals;}
@@ -704,10 +711,16 @@
   .name-chip{
     font-size:12px;padding:3px 9px;border-radius:20px;
     background:var(--input-bg);border:1px solid var(--panel-border);color:var(--text-dim);
+    display:inline-flex;align-items:center;gap:5px;
   }
   .name-chip.yes{border-color:var(--win);color:var(--win);}
   .name-chip.maybe{border-color:var(--gold);color:var(--gold);}
   .name-chip.no{border-color:var(--loss);color:var(--loss);}
+  .name-chip-remove{
+    background:none;border:none;color:inherit;opacity:.6;cursor:pointer;
+    font-size:13px;line-height:1;padding:0;font-family:var(--font-mono);
+  }
+  .name-chip-remove:hover{opacity:1;}
   .attend-breakdown-empty{font-size:12px;color:var(--text-dim);}
 
   .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
