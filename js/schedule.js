@@ -558,9 +558,9 @@ async function submitEventModal(){
   data.events.push({id: genId(), title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}});
   {
     const dateText = dates.map(d=>formatDayShort(d)).join('、');
-    const deadlineText = attendanceDeadline ? `／締切:${formatDayShort(attendanceDeadline)}` : '';
-    const attendText = eventModalAttendanceRequired ? '／出欠確認あり' : '／出欠確認なし';
-    pushAnnouncement(`📅「${title}」が予定に登録されました(${dateText}${deadlineText}${attendText})`);
+    const deadlineLine = attendanceDeadline ? `\n⏰ 締切:${formatDayShort(attendanceDeadline)}` : '';
+    const attendLine = eventModalAttendanceRequired ? '\n✅ 出欠確認あり' : '\n❎ 出欠確認なし';
+    pushAnnouncement(`📅「${title}」が予定に登録されました\n🗓 ${dateText}${deadlineLine}${attendLine}`);
   }
   await saveData();
   closeModal();
