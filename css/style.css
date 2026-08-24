@@ -618,7 +618,6 @@
     font-family:var(--font-display);font-weight:800;font-size:12px;
     color:var(--gold);margin-bottom:8px;letter-spacing:.02em;
   }
-  .top-attend-whoami{margin-bottom:10px;}
   .top-attend-event-list{display:flex;flex-direction:column;gap:12px;}
   .top-attend-event{
     background:var(--input-bg);border:1px solid var(--panel-border);
@@ -655,6 +654,9 @@
   }
   .notice-item-text{font-size:13px;color:var(--text);line-height:1.6;white-space:pre-line;}
   .notice-item-time{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);flex-shrink:0;white-space:nowrap;}
+  .notice-item-clickable{cursor:pointer;transition:background .15s,border-color .15s;}
+  .notice-item-clickable:hover{background:rgba(var(--gold-rgb),.1);border-color:var(--gold);}
+  .notice-item-clickable:active{transform:scale(0.99);}
 
   /* -- ランキングカード: 3位まで -- */
   .top-rank-list{display:flex;flex-direction:column;gap:8px;}
