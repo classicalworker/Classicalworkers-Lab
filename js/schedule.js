@@ -566,12 +566,15 @@ async function submitEventModal(){
   if(!title){ flagFieldError('event-title-input'); missing.push('タイトル'); }
   if(dates.length===0){ flagSectionError('event-date-section'); missing.push('開催日'); }
   if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
-  data.events.push({id: genId(), title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}});
+  const newEventId = genId();
+  data.events.push({id: newEventId, title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}});
   {
+    // 日程・締切・出欠確認の有無を1行にまとめて表示する(詳細入力があればタイトル横に明示)
+    const detailTag = description ? '(詳細あり)' : '';
     const dateText = dates.map(d=>formatDayShort(d)).join('、');
-    const deadlineLine = attendanceDeadline ? `\n⏰ 締切:${formatDayShort(attendanceDeadline)}` : '';
-    const attendLine = eventModalAttendanceRequired ? '\n✅ 出欠確認あり' : '\n❎ 出欠確認なし';
-    pushAnnouncement(`📅「${title}」が予定に登録されました\n🗓 ${dateText}${deadlineLine}${attendLine}`);
+    const deadlineText = attendanceDeadline ? `　⏰ 締切:${formatDayShort(attendanceDeadline)}` : '';
+    const attendText = eventModalAttendanceRequired ? '　✅ 出欠確認あり' : '　❎ 出欠確認なし';
+    pushAnnouncement(`📅「${title}」${detailTag}が予定に登録されました　🗓 ${dateText}${deadlineText}${attendText}`, false, {id: newEventId, type: 'event'});
   }
   await saveData();
   closeModal();
@@ -678,8 +681,11 @@ async function submitTournamentModal(){
       t.dates = dates;
     }
   } else {
-    data.tournaments.push({id: genId(), title, description, result, dates});
-    pushAnnouncement(`🏆「${title}」が大会情報に登録されました`);
+    const newTournamentId = genId();
+    data.tournaments.push({id: newTournamentId, title, description, result, dates});
+    const detailTag = description ? '(詳細あり)' : '';
+    const dateText = dates.map(d=>formatDayShort(d)).join('、');
+    pushAnnouncement(`🏆「${title}」${detailTag}が大会情報に登録されました　🗓 ${dateText}`, false, {id: newTournamentId, type: 'tournament'});
   }
   tournamentModalTitle = '';
   tournamentModalDesc = '';

@@ -358,9 +358,16 @@ function genId(){ return Date.now().toString(36) + Math.random().toString(36).sl
 // ===== TOP画面の「お知らせ」 =====
 // 予定の登録・目標達成など、みんなに知らせたい出来事を記録する。
 // 呼び出し側は追加後に自分でsaveData()すること(他の変更とまとめて1回の保存にするため)。
-function pushAnnouncement(text, pinned){
+// link を渡すと、お知らせをクリックしたときに該当の予定・大会記録へジャンプできるようになる
+// (link = {id: '予定/大会のID', type: 'event' | 'tournament'})
+function pushAnnouncement(text, pinned, link){
   if(!Array.isArray(data.announcements)) data.announcements = [];
-  data.announcements.unshift({id: genId(), text, at: new Date().toISOString(), pinned: !!pinned});
+  const entry = {id: genId(), text, at: new Date().toISOString(), pinned: !!pinned};
+  if(link && link.id && link.type){
+    entry.linkId = link.id;
+    entry.linkType = link.type;
+  }
+  data.announcements.unshift(entry);
   // ピン止めしたものは件数上限の対象外にし、それ以外は最大30件まで保持する
   const pinnedItems = data.announcements.filter(a=>a.pinned);
   let others = data.announcements.filter(a=>!a.pinned);
@@ -665,8 +672,17 @@ function getLoggedInPlayer(){
 }
 function setLoggedInPlayer(name){
   sessionStorage.setItem('cw_logged_in_player', name);
+  // メンバー本人としてログインした場合は、このタブに残っている管理者ログイン状態を解除する
+  // (管理者アカウントとメンバーアカウントが同時にログイン状態にならないようにするため)
+  if(name !== '__admin__'){
+    sessionStorage.removeItem('cw_admin_unlocked');
+  }
 }
 function memberLogout(){
+  // 管理者としてログイン中にログアウトした場合は、管理者アンロック状態もあわせて解除する
+  if(getLoggedInPlayer() === '__admin__'){
+    sessionStorage.removeItem('cw_admin_unlocked');
+  }
   sessionStorage.removeItem('cw_logged_in_player');
   location.reload();
 }
@@ -814,7 +830,9 @@ function renderLoginStatusBar(){
     bar.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);margin:-6px 2px 10px;';
     tabs.insertAdjacentElement('beforebegin', bar);
   }
-  bar.innerHTML = `👤 ${escapeHtml(getLoggedInPlayer())}さんとしてログイン中　<button class="ghost" style="padding:3px 10px;font-size:11px;" onclick="memberLogout()">ログアウト</button>`;
+  const me = getLoggedInPlayer();
+  const label = me === '__admin__' ? '👑 管理者としてログイン中' : `👤 ${escapeHtml(me)}さんとしてログイン中`;
+  bar.innerHTML = `${label}　<button class="ghost" style="padding:3px 10px;font-size:11px;" onclick="memberLogout()">ログアウト</button>`;
 }
 
 // ===== 簡易PINコード認証(管理者ログイン用) =====
@@ -842,8 +860,15 @@ function adminLogout(){
 
 // 管理者ログインの関門。管理者PIN未設定なら新規設定、設定済みなら入力を求める。
 // このタブで既に管理者としてログイン済みなら即座に onSuccess を呼ぶ。
-function requireAdminPin(onSuccess, onCancel){
-  if(isAdminUnlocked()){ onSuccess(); return; }
+// asLogin=true の場合、成功時に「管理者としてサイト全体にログイン」した扱いにし、
+// このタブに残っているメンバーアカウントのログインを解除する
+// (schedule.js等の個別操作の一時的なPIN確認では asLogin を渡さず、本人のログイン状態を維持する)
+function requireAdminPin(onSuccess, onCancel, asLogin){
+  if(isAdminUnlocked()){
+    if(asLogin) setLoggedInPlayer('__admin__');
+    onSuccess();
+    return;
+  }
 
   const handleClose = ()=>{ closeModal(); if(onCancel) onCancel(); };
 
@@ -874,6 +899,7 @@ function requireAdminPin(onSuccess, onCancel){
       data.admin.pinHash = await hashPin(v1);
       await saveData();
       setAdminUnlocked();
+      if(asLogin) setLoggedInPlayer('__admin__');
       closeModal();
       onSuccess();
     };
@@ -899,6 +925,7 @@ function requireAdminPin(onSuccess, onCancel){
     const h = await hashPin(v);
     if(h !== data.admin.pinHash){ errEl.textContent='PINコードが一致しません'; errEl.style.display='block'; return; }
     setAdminUnlocked();
+    if(asLogin) setLoggedInPlayer('__admin__');
     closeModal();
     onSuccess();
   };

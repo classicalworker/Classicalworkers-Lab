@@ -33,16 +33,27 @@ function lockedScreenHtml(){
 }
 
 function adminLoginPrompt(){
+  // asLogin=true: この画面からのログインは「管理者としてサイト全体にログイン」する扱いにし、
+  // 現在ログイン中のメンバーアカウントからは自動的にログアウトする
   requireAdminPin(()=>{
     renderAdmin();
+    renderLoginStatusBar();
     showToast('管理者としてログインしました');
-  });
+  }, null, true);
 }
 
 function adminLogoutAndRender(){
+  // 管理者としてサイト全体にログイン中だった場合は、通常のログアウトと同様に
+  // ログイン画面まで戻す(メンバーとしてのログイン状態も残っていないため)
+  if(getLoggedInPlayer() === '__admin__'){
+    memberLogout();
+    return;
+  }
+  // メンバー本人のまま管理者権限だけを一時的にアンロックしていた場合は、
+  // その権限だけを解除してこのページに留まる
   adminLogout();
   renderAdmin();
-  showToast('ログアウトしました');
+  showToast('管理者権限をログアウトしました');
 }
 
 function adminDashboardHtml(){
@@ -128,7 +139,8 @@ function adminScheduleShortcutHtml(){
       <h2><span class="tag">STEP 2</span>大会情報・日程の登録編集</h2>
       <div style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:12px;">
         登録中の予定: <span class="top-card-highlight">${eventCount}件</span> ／ 大会記録: <span class="top-card-highlight">${tournamentCount}件</span><br>
-        予定・大会記録の追加・編集・削除は「予定」ページから行えます。このタブでは管理者ログイン中のため、PIN確認なしでそのまま操作できます。
+        予定・大会記録の追加・編集・削除は「予定」ページから行えます。このタブでは管理者ログイン中のため、PIN確認なしでそのまま操作できます。<br>
+        出欠確認の回答も、各予定の出欠内訳に並ぶメンバー名の「×」ボタンから個人ごとに取り消せます(管理者ログイン中のみ表示されます)。
       </div>
       <a class="top-link-btn" href="schedule.html">📅 予定ページを開く</a>
     </div>`;

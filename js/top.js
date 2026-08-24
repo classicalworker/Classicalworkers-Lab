@@ -194,13 +194,18 @@ function topGetAttendanceDayEntries(){
 }
 
 // TOP画面から直接出席を入力できるようにする(全予定を1列表示・件数が多い場合はページめくり)
-function topSetCurrentPlayer(v){
-  currentPlayer = v || null;
-  renderTop();
+// サイト全体のログイン(名前+PIN)で本人が特定できているので、
+// ここで改めて「あなたは」を聞かず、ログイン中の本人をそのまま出欠の記録対象にする
+function topEnsureCurrentPlayer(){
+  if(!currentPlayer){
+    const logged = getLoggedInPlayer();
+    if(logged && data.players[logged]) currentPlayer = logged;
+  }
 }
 
 async function topSetAttendance(eventId, day, status){
-  if(!currentPlayer){ showToast('先に「あなたは」を選択してください'); return; }
+  topEnsureCurrentPlayer();
+  if(!currentPlayer){ showToast('ログイン中のプレイヤー情報を確認できませんでした'); return; }
   const ev = (data.events||[]).find(e=>e.id===eventId);
   if(!ev) return;
   if(!ev.attendance) ev.attendance = {};
@@ -252,6 +257,7 @@ function topAttendanceDayCardHtml(entry, totalMembers){
 }
 
 function topAttendanceEventsHtml(){
+  topEnsureCurrentPlayer();
   const entries = topGetAttendanceDayEntries();
 
   if(entries.length===0){
@@ -267,8 +273,6 @@ function topAttendanceEventsHtml(){
   }
 
   const totalMembers = Object.keys(data.players).length;
-  const names = Object.keys(data.players);
-  const whoamiOptions = names.map(n=>`<option value="${escapeHtml(n)}" ${currentPlayer===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
 
   const perPage = TOP_ATTEND_EVENTS_PER_PAGE;
   const totalPages = Math.max(Math.ceil(entries.length / perPage), 1);
@@ -288,12 +292,6 @@ function topAttendanceEventsHtml(){
   return `
     <div class="top-attend-input">
       <div class="top-attend-input-head">📋 出席の入力(${entries.length}件)</div>
-      <div class="whoami top-attend-whoami">
-        <label style="margin:0">あなたは:</label>
-        <select onchange="topSetCurrentPlayer(this.value)">
-          <option value="">選択してください</option>${whoamiOptions}
-        </select>
-      </div>
       <div class="top-attend-event-list">${cardsHtml}</div>
       ${pagerHtml}
     </div>`;
@@ -536,11 +534,15 @@ function topAnnouncementsCardHtml(){
   if(items.length===0){
     return `<div class="top-card-empty-msg">まだお知らせはありません。</div>`;
   }
-  const itemsHtml = items.map(a=>`
-    <div class="notice-item">
+  const itemsHtml = items.map(a=>{
+    const clickable = !!(a.linkId && a.linkType);
+    const clickAttr = clickable ? ` onclick="jumpToEvent('${a.linkId}','${a.linkType}')" role="button" tabindex="0"` : '';
+    return `
+    <div class="notice-item${clickable ? ' notice-item-clickable' : ''}"${clickAttr}>
       <div class="notice-item-text">${a.pinned ? '📌 ' : ''}${escapeHtml(a.text)}</div>
       <div class="notice-item-time">${formatTimeAgo(a.at)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `<div class="notice-item-list">${itemsHtml}</div>`;
 }
 
