@@ -376,44 +376,64 @@ function topShuffle(arr){
   return a;
 }
 
-function topPlayerMission(name){
-  const p = data.players[name];
-  const goals = p.goals || [];
-  const activeGoal = goals.find(g=>!g.done);
-  if(activeGoal) return {text: activeGoal.text, done: false};
-  if(p.mainGoal) return {text: p.mainGoal, done: !!p.mainGoalDone};
-  return null;
+// メンバーごとの個別ミッション(サブ目標)を全員分フラットな一覧にする(メイン目標は対象外)
+function topAllMissionsPool(){
+  const names = Object.keys(data.players);
+  const pool = [];
+  names.forEach(n=>{
+    const goals = data.players[n].goals || [];
+    goals.forEach(g=>{
+      pool.push({name: n, text: g.text, done: !!g.done});
+    });
+  });
+  return pool;
 }
 
-let topCachedMissionNames = null;
+// プールからランダムに最大count件を選ぶ。同じメンバーからは1件までに制限する
+function topPickRandomMissions(pool, count){
+  const shuffled = topShuffle(pool);
+  const picked = [];
+  const usedNames = new Set();
+  for(const item of shuffled){
+    if(usedNames.has(item.name)) continue;
+    picked.push(item);
+    usedNames.add(item.name);
+    if(picked.length >= count) break;
+  }
+  return picked;
+}
+
+const TOP_GOALS_CARD_COUNT = 3;
+let topCachedMissionPicks = null;
 
 function topGoalsCardHtml(){
-  const names = Object.keys(data.players);
-  const withMission = names.filter(n => topPlayerMission(n));
-  if(withMission.length===0){
-    topCachedMissionNames = null;
+  const pool = topAllMissionsPool();
+  if(pool.length===0){
+    topCachedMissionPicks = null;
     return `<div class="top-card-empty-msg">まだミッションが設定されていません。</div>`;
   }
-  // キャッシュが無効(初回描画、または選出済みメンバーが対象から外れた)場合のみ再抽選する
-  if(!topCachedMissionNames || !topCachedMissionNames.every(n => withMission.includes(n))){
-    topCachedMissionNames = topShuffle(withMission).slice(0,3);
+  // キャッシュが無効(初回描画、または選出済みミッションが対象から外れた)場合のみ再抽選する
+  const stillValid = topCachedMissionPicks && topCachedMissionPicks.every(pick =>
+    pool.some(item => item.name === pick.name && item.text === pick.text)
+  );
+  if(!stillValid){
+    topCachedMissionPicks = topPickRandomMissions(pool, TOP_GOALS_CARD_COUNT);
   }
-  const picked = topCachedMissionNames;
-  const itemsHtml = picked.map(n=>{
-    const p = data.players[n];
-    const m = topPlayerMission(n);
+  const picked = topCachedMissionPicks;
+  const itemsHtml = picked.map(item=>{
+    const p = data.players[item.name];
     const iconHtml = p.icon
       ? `<img class="mission-icon" src="${p.icon}" alt="">`
       : `<div class="mission-icon-ph">👤</div>`;
-    const statusHtml = m.done
+    const statusHtml = item.done
       ? `<span class="mission-status done">✅ 達成済み</span>`
       : `<span class="mission-status active">🔥 取組中</span>`;
     return `
       <div class="mission-item">
         ${iconHtml}
         <div class="mission-body">
-          <div class="mission-name">${escapeHtml(n)}</div>
-          <div class="mission-text">${escapeHtml(m.text)}</div>
+          <div class="mission-name">${escapeHtml(item.name)}</div>
+          <div class="mission-text">${escapeHtml(item.text)}</div>
           ${statusHtml}
         </div>
       </div>`;

@@ -661,29 +661,58 @@ async function initPage(){
 
 // ===== サイト全体のログイン(名前+PINコード) =====
 // サイトを開くとまず「名前+PIN」を聞く。未登録の名前ならその場で新規登録する。
-// ログイン中はこのタブの間、以降ページを移動しても再入力は不要。
+// ログイン状態は端末に30日間保持され、この間はページ移動やタブ・ブラウザの再起動をしても再入力は不要。
 // ログイン中の本人はマイページで自分のデータしか見られない(管理者ログイン中は例外)。
 
+const LOGIN_PERSIST_MS = 30 * 24 * 60 * 60 * 1000; // 30日間
+
+// 有効期限付きでlocalStorageに保存する(sessionStorageと違いタブ・ブラウザを閉じても消えない)
+function persistentStorageSet(key, value){
+  try{
+    localStorage.setItem(key, JSON.stringify({ value, expiresAt: Date.now() + LOGIN_PERSIST_MS }));
+  } catch(e){ /* noop */ }
+}
+// 期限切れなら自動的に破棄してnullを返す
+function persistentStorageGet(key){
+  let raw;
+  try{ raw = localStorage.getItem(key); } catch(e){ return null; }
+  if(!raw) return null;
+  try{
+    const record = JSON.parse(raw);
+    if(!record || typeof record.expiresAt !== 'number' || Date.now() > record.expiresAt){
+      localStorage.removeItem(key);
+      return null;
+    }
+    return record.value;
+  } catch(e){
+    localStorage.removeItem(key);
+    return null;
+  }
+}
+function persistentStorageRemove(key){
+  try{ localStorage.removeItem(key); } catch(e){ /* noop */ }
+}
+
 function isMemberLoggedIn(){
-  return !!sessionStorage.getItem('cw_logged_in_player');
+  return !!persistentStorageGet('cw_logged_in_player');
 }
 function getLoggedInPlayer(){
-  return sessionStorage.getItem('cw_logged_in_player') || '';
+  return persistentStorageGet('cw_logged_in_player') || '';
 }
 function setLoggedInPlayer(name){
-  sessionStorage.setItem('cw_logged_in_player', name);
-  // メンバー本人としてログインした場合は、このタブに残っている管理者ログイン状態を解除する
+  persistentStorageSet('cw_logged_in_player', name);
+  // メンバー本人としてログインした場合は、残っている管理者ログイン状態を解除する
   // (管理者アカウントとメンバーアカウントが同時にログイン状態にならないようにするため)
   if(name !== '__admin__'){
-    sessionStorage.removeItem('cw_admin_unlocked');
+    persistentStorageRemove('cw_admin_unlocked');
   }
 }
 function memberLogout(){
   // 管理者としてログイン中にログアウトした場合は、管理者アンロック状態もあわせて解除する
   if(getLoggedInPlayer() === '__admin__'){
-    sessionStorage.removeItem('cw_admin_unlocked');
+    persistentStorageRemove('cw_admin_unlocked');
   }
-  sessionStorage.removeItem('cw_logged_in_player');
+  persistentStorageRemove('cw_logged_in_player');
   location.reload();
 }
 
@@ -847,15 +876,15 @@ async function hashPin(pin){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-// 管理者としてこのタブでログイン済みかどうか
+// 管理者としてログイン済みかどうか(こちらも30日間保持)
 function isAdminUnlocked(){
-  return sessionStorage.getItem('cw_admin_unlocked') === '1';
+  return persistentStorageGet('cw_admin_unlocked') === '1';
 }
 function setAdminUnlocked(){
-  sessionStorage.setItem('cw_admin_unlocked', '1');
+  persistentStorageSet('cw_admin_unlocked', '1');
 }
 function adminLogout(){
-  sessionStorage.removeItem('cw_admin_unlocked');
+  persistentStorageRemove('cw_admin_unlocked');
 }
 
 // 管理者ログインの関門。管理者PIN未設定なら新規設定、設定済みなら入力を求める。
