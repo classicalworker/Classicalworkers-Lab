@@ -206,6 +206,7 @@ function eventCardHtml(ev, onlyDay){
             ${chipRow('未定', groups.maybe, 'maybe')}
             ${chipRow('欠席', groups.no, 'no')}
           </div>
+          ${isAdminUnlocked() ? `<button class="ghost" style="margin:8px 0 0;padding:5px 12px;font-size:11px;" onclick="openBulkAttendanceModal('${ev.id}','${day}')">🗂 出欠をまとめて入力(管理者)</button>` : ''}
         </div>`;
     }).join('');
   }
@@ -350,6 +351,73 @@ function adminDeleteAttendance(eventId, day, name){
     }
     showToast('出欠回答を削除しました');
   });
+}
+
+// ===== 管理者権限: 予定の出欠をメンバー全員分まとめて入力する =====
+// 各メンバーが個別に「出席/未定/欠席」を押さなくても、管理者がロビーや口頭確認の内容を
+// 一括で入力・保存できるようにする機能。requireAdminPin() で管理者PINを確認してから開く。
+function openBulkAttendanceModal(eventId, day){
+  requireAdminPin(()=>{
+    renderBulkAttendanceModal(eventId, day);
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
+}
+
+function renderBulkAttendanceModal(eventId, day){
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev) return;
+  const dayAtt = (ev.attendance && ev.attendance[day]) || {};
+  const names = Object.keys(data.players).sort((a,b)=>a.localeCompare(b,'ja'));
+  const rowsHtml = names.length ? names.map(n=>{
+    const st = dayAtt[n] || '';
+    const opt = (val, label) => `<option value="${val}" ${st===val?'selected':''}>${label}</option>`;
+    return `
+      <div class="match-edit-row" style="flex-wrap:wrap;">
+        <div style="flex:1;min-width:90px;font-weight:800;font-size:13px;">${escapeHtml(n)}</div>
+        <select class="bulk-attend-select" data-name="${escapeHtml(n)}" style="max-width:120px;">
+          ${opt('', '未回答')}${opt('yes', '出席')}${opt('maybe', '未定')}${opt('no', '欠席')}
+        </select>
+      </div>`;
+  }).join('') : '<div class="empty">メンバーが登録されていません</div>';
+
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <h2>🗂 出欠をまとめて入力</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;">
+      「${escapeHtml(ev.title)}」${formatDayShort(day)} の出欠を、メンバーごとにまとめて設定して一度に保存できます。「未回答」のままにするとその人の回答は削除されます。
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="ghost" style="flex:1;margin-top:0;" onclick="bulkAttendanceSetAll('yes')">全員 出席にする</button>
+      <button class="ghost" style="flex:1;margin-top:0;" onclick="bulkAttendanceSetAll('no')">全員 欠席にする</button>
+    </div>
+    <div style="max-height:360px;overflow-y:auto;">${rowsHtml}</div>
+    <button class="primary" onclick="submitBulkAttendance('${eventId}','${day}')">この内容で保存</button>
+  `;
+}
+
+// モーダルを開いたまま、表示中の選択肢だけを一斉に切り替える(この時点ではまだ保存しない)
+function bulkAttendanceSetAll(status){
+  document.querySelectorAll('.bulk-attend-select').forEach(sel=>{ sel.value = status; });
+}
+
+async function submitBulkAttendance(eventId, day){
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev) return;
+  if(!ev.attendance) ev.attendance = {};
+  if(!ev.attendance[day]) ev.attendance[day] = {};
+  document.querySelectorAll('.bulk-attend-select').forEach(sel=>{
+    const name = sel.dataset.name;
+    const val = sel.value;
+    if(!name) return;
+    if(val) ev.attendance[day][name] = val;
+    else delete ev.attendance[day][name];
+  });
+  await saveData();
+  closeModal();
+  renderSchedule();
+  showToast('出欠をまとめて保存しました');
 }
 
 function deleteTournament(id){
