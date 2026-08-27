@@ -208,6 +208,8 @@ async function topSetAttendance(eventId, day, status){
   if(!currentPlayer){ showToast('ログイン中のプレイヤー情報を確認できませんでした'); return; }
   const ev = (data.events||[]).find(e=>e.id===eventId);
   if(!ev) return;
+  const todayStr = new Date().toISOString().slice(0,10);
+  if(ev.attendanceDeadline && todayStr > ev.attendanceDeadline){ showToast('出席確認の期限は過ぎています'); return; }
   if(!ev.attendance) ev.attendance = {};
   if(!ev.attendance[day]) ev.attendance[day] = {};
   ev.attendance[day][currentPlayer] = status;
@@ -236,23 +238,37 @@ function topAttendanceDayCardHtml(entry, totalMembers){
   const pending = Math.max(totalMembers - yes - maybe - no, 0);
   const mine = currentPlayer ? dayAtt[currentPlayer] : null;
 
+  const todayStr = new Date().toISOString().slice(0,10);
+  const deadlinePassed = !!(ev.attendanceDeadline && todayStr > ev.attendanceDeadline);
+
+  // 出席期限を過ぎたら、回答用のボタンは非表示にし、
+  // 「未定」「出席(参加メンバー)」の件数のみを確認用に表示する
+  const summaryHtml = deadlinePassed ? `
+      <div class="top-attend-summary">
+        <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
+        <div class="top-attend-chip yes">○ 参加メンバー ${yes}</div>
+      </div>` : `
+      <div class="top-attend-summary">
+        <div class="top-attend-chip yes">○ 出席 ${yes}</div>
+        <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
+        <div class="top-attend-chip no">× 欠席 ${no}</div>
+        <div class="top-attend-chip pending">？ 未回答 ${pending}</div>
+      </div>`;
+  const buttonsHtml = deadlinePassed ? '' : `
+      <div class="attend-buttons">
+        <div class="attend-btn yes ${mine==='yes'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','yes')">出席</div>
+        <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','maybe')">未定</div>
+        <div class="attend-btn no ${mine==='no'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','no')">欠席</div>
+      </div>`;
+
   return `
     <div class="top-attend-event">
       <div class="top-sched-next">
         <span class="top-sched-badge">${escapeHtml(dateLabel)}</span>
         <span class="top-sched-title">${escapeHtml(ev.title)}</span>
       </div>
-      <div class="top-attend-summary">
-        <div class="top-attend-chip yes">○ 出席 ${yes}</div>
-        <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
-        <div class="top-attend-chip no">× 欠席 ${no}</div>
-        <div class="top-attend-chip pending">？ 未回答 ${pending}</div>
-      </div>
-      <div class="attend-buttons">
-        <div class="attend-btn yes ${mine==='yes'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','yes')">出席</div>
-        <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','maybe')">未定</div>
-        <div class="attend-btn no ${mine==='no'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','no')">欠席</div>
-      </div>
+      ${summaryHtml}
+      ${buttonsHtml}
     </div>`;
 }
 
