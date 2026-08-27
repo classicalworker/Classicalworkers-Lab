@@ -867,8 +867,8 @@
     border:1px solid rgba(var(--gold-rgb),0.25);
   }
   .deadline-badge.passed{
-    background:rgba(var(--loss-rgb),0.1);color:var(--loss);
-    border:1px solid rgba(var(--loss-rgb),0.3);
+    background:rgba(var(--win-rgb),0.1);color:var(--win);
+    border:1px solid rgba(var(--win-rgb),0.3);
   }
 
   .date-mode-row{display:flex;gap:8px;align-items:flex-end;margin-top:8px;}
