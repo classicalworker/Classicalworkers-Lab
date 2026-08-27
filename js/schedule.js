@@ -141,7 +141,7 @@ function eventCardHtml(ev, onlyDay){
   const todayStr = new Date().toISOString().slice(0,10);
   const deadlinePassed = !!(ev.attendanceRequired && ev.attendanceDeadline && todayStr > ev.attendanceDeadline);
   const deadlineTag = (ev.attendanceRequired && ev.attendanceDeadline)
-    ? `<span class="deadline-badge ${deadlinePassed?'passed':''}">${deadlinePassed?'⚠️ 出席期限切れ':'⏰ 出席期限'} ${formatDayShort(ev.attendanceDeadline)}</span>`
+    ? `<span class="deadline-badge ${deadlinePassed?'passed':''}">${deadlinePassed?'✅ 出欠確定':'⏰ 出席期限'} ${formatDayShort(ev.attendanceDeadline)}</span>`
     : '';
   const daysToShow = onlyDay ? dates.filter(d=>d===onlyDay) : dates;
 
@@ -331,7 +331,7 @@ async function setAttendance(eventId, day, status){
   const ev = data.events.find(e=>e.id===eventId);
   if(!ev) return;
   const todayStr = new Date().toISOString().slice(0,10);
-  if(ev.attendanceDeadline && todayStr > ev.attendanceDeadline){ showToast('出席確認の期限は過ぎています'); return; }
+  if(ev.attendanceDeadline && todayStr > ev.attendanceDeadline){ showToast('出欠はすでに確定しています'); return; }
   if(!ev.attendance) ev.attendance = {};
   if(!ev.attendance[day]) ev.attendance[day] = {};
   ev.attendance[day][currentPlayer] = status;
@@ -542,7 +542,7 @@ function renderEventModal(){
     ${eventModalAttendanceRequired ? `
     <label>出席確認の期限日(任意)</label>
     <input type="date" id="event-deadline-input" value="${escapeHtml(eventModalDeadline)}">
-    <div class="attend-toggle-hint">期限を過ぎると、この予定の出席確認が赤く表示されます。</div>
+    <div class="attend-toggle-hint">期限を過ぎると、出欠が確定として表示されます。</div>
     ` : ''}
 
     <button class="primary" onclick="submitEventModal()">予定を追加する</button>

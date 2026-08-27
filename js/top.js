@@ -209,7 +209,7 @@ async function topSetAttendance(eventId, day, status){
   const ev = (data.events||[]).find(e=>e.id===eventId);
   if(!ev) return;
   const todayStr = new Date().toISOString().slice(0,10);
-  if(ev.attendanceDeadline && todayStr > ev.attendanceDeadline){ showToast('出席確認の期限は過ぎています'); return; }
+  if(ev.attendanceDeadline && todayStr > ev.attendanceDeadline){ showToast('出欠はすでに確定しています'); return; }
   if(!ev.attendance) ev.attendance = {};
   if(!ev.attendance[day]) ev.attendance[day] = {};
   ev.attendance[day][currentPlayer] = status;
