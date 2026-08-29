@@ -99,11 +99,9 @@ function renderMyPageWithPlayer(){
           <span>モダン(M)</span>
         </label>
       </div>
-      <label>最大MR</label>
-      <input type="number" id="max-mr-input" value="${escapeHtml(p.maxMR||'')}" placeholder="例:1800">
-
-      <label>ユーザーコード</label>
+      <label>ユーザーコード(入力すると最大MRが表示されます)</label>
       <input type="text" id="user-code-input" value="${escapeHtml(p.userCode||'')}" placeholder="例:1234567890">
+      ${(p.currentMR || p.maxMR) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : ''}${(p.currentMR && p.maxMR) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
 
       <label>使用デバイス</label>
       <div class="choice-group" style="flex-wrap:wrap">
@@ -304,7 +302,6 @@ async function saveProfileStep2(){
   const controlTypes = [];
   if(document.getElementById('control-type-c').checked) controlTypes.push('C');
   if(document.getElementById('control-type-m').checked) controlTypes.push('M');
-  const maxMR = document.getElementById('max-mr-input').value.trim();
   const userCode = document.getElementById('user-code-input').value.trim();
   const devices = Array.from(document.querySelectorAll('.device-type-cb:checked')).map(el=>el.value);
   const deviceName = document.getElementById('device-name-input').value.trim();
@@ -316,7 +313,7 @@ async function saveProfileStep2(){
 
   const player = data.players[currentPlayer];
   player.controlTypes = controlTypes;
-  player.maxMR = maxMR;
+  // maxMRはユーザーコードをもとに自動取得されるため、ここでは書き換えない
   player.userCode = userCode;
   player.devices = devices;
   player.deviceName = deviceName;
@@ -623,7 +620,7 @@ async function recordMatch(){
   // 自分のプレイヤーオブジェクトが存在するか確認してからpush
   if(!data.players[currentPlayer]) {
     data.players[currentPlayer] = {
-      matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false,
+      matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', mainGoal:'', mainGoalDone:false,
       userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[]
     };
   }

@@ -16,10 +16,10 @@ function renderRanking(){
 
   if(rankingSubTab === 'mr'){
     const withMR = names
-      .filter(n => data.players[n].maxMR && data.players[n].maxMR.trim() !== '')
+      .filter(n => data.players[n].currentMR && String(data.players[n].currentMR).trim() !== '')
       .map(n => ({
         name: n,
-        mr: parseInt(data.players[n].maxMR, 10) || 0
+        mr: parseInt(data.players[n].currentMR, 10) || 0
       }))
       .filter(p => p.mr > 0);
 

@@ -27,7 +27,9 @@ function renderMembers(){
         ${iconHtml}
         <div class="member-card-body">
           <div class="member-card-name">${escapeHtml(name)}</div>
-          ${p.maxMR ? `<div class="member-card-mr" style="color:${getMRColor(parseInt(p.maxMR)||0)}">MR ${escapeHtml(p.maxMR)}</div>` : ''}
+          ${p.currentMR
+            ? `<div class="member-card-mr" style="color:${getMRColor(parseInt(p.currentMR)||0)}">MR ${escapeHtml(p.currentMR)}${p.maxMR ? ` <span style="color:var(--text-dim);font-weight:400;font-size:11px;">(最大 ${escapeHtml(p.maxMR)})</span>` : ''}</div>`
+            : (p.maxMR ? `<div class="member-card-mr" style="color:var(--text-dim);font-weight:400;">最大MR ${escapeHtml(p.maxMR)}</div>` : '')}
           ${goalHtml}
           <div class="member-card-record">${s.total}戦 ${s.wins}勝</div>
           ${metaRowHtml}
@@ -76,7 +78,7 @@ function viewMember(name){
       }).join('')
     : '<div class="empty">まだ記録がありません</div>';
 
-  const mrColor = p.maxMR ? getMRColor(parseInt(p.maxMR)||0) : 'var(--text-dim)';
+  const mrColor = p.currentMR ? getMRColor(parseInt(p.currentMR)||0) : 'var(--text-dim)';
   const deviceRowDetail = deviceChipsHtml(p);
   const platformRowDetail = platformChipsHtml(p);
   const iconHeaderHtml = p.icon ? `<img class="member-icon-lg" src="${p.icon}" alt="">` : '';
@@ -88,7 +90,8 @@ function viewMember(name){
         ${iconHeaderHtml}
         <h2 style="margin:0">${escapeHtml(name)}<span class="tag" style="background:none;color:var(--text-dim);font-weight:400;padding:0">操作:${escapeHtml(controlLabel)}</span></h2>
       </div>
-      ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:15px;font-weight:800;color:${mrColor};margin-bottom:8px">MR: ${escapeHtml(p.maxMR)}</div>` : ''}
+      ${p.currentMR ? `<div style="font-family:var(--font-mono);font-size:15px;font-weight:800;color:${mrColor};margin-bottom:2px">MR: ${escapeHtml(p.currentMR)}</div>` : ''}
+      ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:8px">最大MR: ${escapeHtml(p.maxMR)}</div>` : ''}
       ${p.userCode ? `<div class="member-usercode" style="margin-bottom:6px">🆔 ${escapeHtml(p.userCode)}</div>` : ''}
       ${(deviceRowDetail || platformRowDetail) ? `<div class="member-meta-row" style="margin-bottom:6px">${deviceRowDetail}${platformRowDetail}</div>` : ''}
       <div class="gauge-row">

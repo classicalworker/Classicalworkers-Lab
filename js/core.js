@@ -55,7 +55,7 @@ let tabStates = {
 function defaultData(){
   const players = {};
   SEED_PLAYERS.forEach(n => players[n] = {
-    matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+    matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
@@ -101,6 +101,7 @@ function normalizeData(data){
       
       // その他のフィールドもデフォルト値で補完
       if (p.maxMR === undefined) p.maxMR = '';
+      if (p.currentMR === undefined) p.currentMR = '';
       if (p.mainGoal === undefined) p.mainGoal = '';
       if (p.mainGoalDone === undefined) p.mainGoalDone = false;
       if (p.mainGoalAchievedAt === undefined) p.mainGoalAchievedAt = null;
@@ -780,7 +781,7 @@ function showLoginGate(onSuccess){
         }
       } else {
         data.players[name] = {
-          matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+          matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
           userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
           streamUrl:'', streamTitle:'', isLive:false,
           twitchLogin:'', pin:pin

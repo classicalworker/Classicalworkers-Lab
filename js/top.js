@@ -457,17 +457,17 @@ function topGoalsCardHtml(){
   return `<div class="mission-list">${itemsHtml}</div>`;
 }
 
-// ---- MRランキングカード: 最高MRの上位3名を表示 ----
+// ---- MRランキングカード: 現在のMR(日々変動)の上位3名を表示 ----
 
 function topMrRankingCardHtml(){
   const names = Object.keys(data.players);
   const withMr = names
-    .map(n => ({name:n, mr: parseInt(data.players[n].maxMR, 10)}))
+    .map(n => ({name:n, mr: parseInt(data.players[n].currentMR, 10)}))
     .filter(p => !isNaN(p.mr) && p.mr > 0)
     .sort((a,b)=> b.mr - a.mr);
 
   if(withMr.length===0){
-    return `<div class="top-card-empty-msg">まだ最高MRが登録されていません。</div>`;
+    return `<div class="top-card-empty-msg">まだMRが登録されていません。</div>`;
   }
 
   const medals = ['🥇','🥈','🥉'];
