@@ -471,14 +471,14 @@ function topMrRankingCardHtml(){
   }
 
   const medals = ['🥇','🥈','🥉'];
-  const itemsHtml = withMr.slice(0,3).map((p,i)=>{
+  const itemsHtml = withMr.slice(0,5).map((p,i)=>{
     const player = data.players[p.name];
     const iconHtml = player.icon
       ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
       : `<div class="top-rank-icon-ph">👤</div>`;
     return `
       <div class="top-rank-item rank${i+1}">
-        <span class="top-rank-medal">${medals[i]}</span>
+        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
         ${iconHtml}
         <div class="top-rank-body">
           <span class="top-rank-name">${escapeHtml(p.name)}</span>
@@ -503,14 +503,14 @@ function topBattleRankingCardHtml(){
   }
 
   const medals = ['🥇','🥈','🥉'];
-  const itemsHtml = withBattles.slice(0,3).map((p,i)=>{
+  const itemsHtml = withBattles.slice(0,5).map((p,i)=>{
     const player = data.players[p.name];
     const iconHtml = player.icon
       ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
       : `<div class="top-rank-icon-ph">👤</div>`;
     return `
       <div class="top-rank-item rank${i+1}">
-        <span class="top-rank-medal">${medals[i]}</span>
+        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
         ${iconHtml}
         <div class="top-rank-body">
           <span class="top-rank-name">${escapeHtml(p.name)}</span>
@@ -535,14 +535,14 @@ function topRankingCardHtml(){
   }
 
   const medals = ['🥇','🥈','🥉'];
-  const itemsHtml = withMatches.slice(0,3).map((p,i)=>{
+  const itemsHtml = withMatches.slice(0,5).map((p,i)=>{
     const player = data.players[p.name];
     const iconHtml = player.icon
       ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
       : `<div class="top-rank-icon-ph">👤</div>`;
     return `
       <div class="top-rank-item rank${i+1}">
-        <span class="top-rank-medal">${medals[i]}</span>
+        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
         ${iconHtml}
         <div class="top-rank-body">
           <span class="top-rank-name">${escapeHtml(p.name)}</span>

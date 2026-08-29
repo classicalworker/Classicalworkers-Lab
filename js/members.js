@@ -89,11 +89,11 @@ function viewMember(name){
     <div class="card" style="margin-top:12px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
         ${iconHeaderHtml}
-        <h2 style="margin:0">${escapeHtml(name)}<span class="tag" style="background:none;color:var(--text-dim);font-weight:400;padding:0">操作:${escapeHtml(controlLabel)}</span></h2>
+        <h2 style="margin:0">${escapeHtml(name)}<span class="tag" style="background:none;color:var(--text-dim);font-weight:400;padding:0;font-size:16px;">操作:${escapeHtml(controlLabel)}</span></h2>
       </div>
-      ${p.currentMR ? `<div style="font-family:var(--font-mono);font-size:15px;font-weight:800;color:${mrColor};margin-bottom:2px">MR: ${escapeHtml(p.currentMR)}</div>` : ''}
-      ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:2px">最大MR: ${escapeHtml(p.maxMR)}</div>` : ''}
-      ${p.actBattleCount ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:8px">ACT${escapeHtml(String(p.currentActNumber||''))}: ${escapeHtml(String(p.actBattleCount))}戦</div>` : ''}
+      ${p.currentMR ? `<div style="font-family:var(--font-mono);font-size:22px;font-weight:800;color:${mrColor};margin-bottom:4px">MR: ${escapeHtml(p.currentMR)}</div>` : ''}
+      ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:4px">最大MR: ${escapeHtml(p.maxMR)}</div>` : ''}
+      ${p.actBattleCount ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:8px">ACT${escapeHtml(String(p.currentActNumber||''))}: ${escapeHtml(String(p.actBattleCount))}戦</div>` : ''}
       ${p.userCode ? `<div class="member-usercode" style="margin-bottom:6px">🆔 ${escapeHtml(p.userCode)}</div>` : ''}
       ${(deviceRowDetail || platformRowDetail) ? `<div class="member-meta-row" style="margin-bottom:6px">${deviceRowDetail}${platformRowDetail}</div>` : ''}
       <div style="display:flex;gap:10px;margin-top:12px;">
