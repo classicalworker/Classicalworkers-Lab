@@ -118,10 +118,23 @@ function extractMaxMR(row) {
 }
 
 // 全キャラクターの試合数(NNN_battle_count)を合計する
+// 「253」のようにMR(master_rating)列を持たない集計専用IDが battle_count ブロックにのみ
+// 紛れ込んでいる(実キャラ分の合計とほぼ同じ値を持ち、二重計上の原因になる)ため、
+// MR列(=実在するキャラクター)を持つIDだけに絞って合計する。
 function extractTotalBattleCount(row) {
+  // 実在するキャラクターIDの集合(MR列があるものだけ)を作る
+  const validCharIds = new Set();
+  for (const key of Object.keys(row)) {
+    if (MR_COLUMN_REGEX.test(key)) {
+      validCharIds.add(key.split('_')[0]);
+    }
+  }
+
   let total = 0;
   for (const key of Object.keys(row)) {
     if (!BATTLE_COUNT_COLUMN_REGEX.test(key)) continue;
+    const charId = key.split('_')[0];
+    if (!validCharIds.has(charId)) continue; // 253などの集計専用IDは除外
     const value = Number(row[key]);
     if (Number.isFinite(value)) total += value;
   }
