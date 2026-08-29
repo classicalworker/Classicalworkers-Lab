@@ -2,8 +2,8 @@ name: 配信ステータス自動更新
 
 on:
   schedule:
-    # 15分おきに実行(UTC基準のcron)。GitHub側の都合で数分遅延することがあります。
-    - cron: "*/15 * * * *"
+    # 毎年8月30日おきに実行(UTC基準のcron)。GitHub側の都合で数分遅延することがあります。
+    - cron: "0 8 30 8 *"
   workflow_dispatch: {}
 
 permissions:
