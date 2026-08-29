@@ -1,14 +1,18 @@
-// ===== MR(マスターレート)自動更新スクリプト =====
+// ===== MR(マスターレート)/ ACT試合数 自動更新スクリプト =====
 // GitHub Actions(.github/workflows/update-mr.yml)から毎日1回(JST 05:00)定期実行される。
 //
 // 各メンバーがマイページで登録した「ユーザーコード」(userCode)を使って、
 // 非公式サイト「メトログラフ」(sf6.halipe.co)が公開しているCSVを取得し、
-// その日時点での全キャラクター中の最高MRを算出する。
+// その日時点での全キャラクター中の最高MRと、全キャラ合計の試合数を算出する。
 //
-// - currentMR: 今日時点のMR。毎日上書きし、日々の変動(勝敗によるMRの上下)をそのまま反映する。
-//              ランキング(ranking.js)やTOP画面のMRランキングカード(top.js)はこちらを参照する。
-// - maxMR:     自己最高MR。currentMRが過去の記録を上回った時だけ更新する(下がらない)。
-//              メンバー一覧・プロフィール(members.js)で、色付けなしの控えめな表示として使う。
+// - currentMR:      今日時点のMR。毎日上書きし、日々の変動(勝敗によるMRの上下)をそのまま反映する。
+//                    ランキング(ranking.js)やTOP画面のMRランキングカード(top.js)はこちらを参照する。
+// - maxMR:          自己最高MR。currentMRが過去の記録を上回った時だけ更新する(下がらない)。
+//                    メンバー一覧・プロフィール(members.js)で、色付けなしの控えめな表示として使う。
+// - actBattleCount: 現在のACT(CURRENT_ACT_NUMBER)における全キャラ合計の試合数。
+//                    Capcom側でACTが変わると各キャラのbattle_countも0にリセットされるため、
+//                    その日のCSVに入っている値の合計がそのままACT内の試合数になる(毎日上書き)。
+// - currentActNumber: actBattleCountがどのACTのものかを表す番号(表示用)。
 //
 // live-status.mjs と同じく、サービスアカウント経由でセキュリティルールをバイパスして
 // 書き込むため、クライアント側からの直接書き込みは database.rules.json 側で禁止したままにできる。
@@ -18,11 +22,20 @@ import { getDatabase } from 'firebase-admin/database';
 
 const DATABASE_URL = 'https://classical-workers-lab-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+// ====== 現在のACT情報(ACTが切り替わったらここだけ更新すればOK) ======
+const CURRENT_ACT_NUMBER = 13;
+const CURRENT_ACT_START_DATE = '2026-08-02'; // 表示・参考用(試合数の集計自体はCSV側のリセットに依存)
+// ======================================================================
+
 const CSV_URL = (code) =>
   `https://firebasestorage.googleapis.com/v0/b/hali-sf6-20230604.appspot.com/o/myrank%2Fplayer%2F${encodeURIComponent(code)}.csv?alt=media`;
 
 // 「NNN_master_rating」形式の列だけを抽出する(「NNN_master_rating_ranking」は除外)
 const MR_COLUMN_REGEX = /^\d{3}_master_rating$/;
+
+// 「NNN_battle_count」形式(キャラごとの合計試合数)の列だけを抽出する
+// (「NNN_MMM_battle_count」というキャラ対キャラの内訳列は除外する)
+const BATTLE_COUNT_COLUMN_REGEX = /^\d{3}_battle_count$/;
 
 function requireEnv(name) {
   const v = process.env[name];
@@ -104,6 +117,17 @@ function extractMaxMR(row) {
   return { mr: maxMR, characterId: bestCharId };
 }
 
+// 全キャラクターの試合数(NNN_battle_count)を合計する
+function extractTotalBattleCount(row) {
+  let total = 0;
+  for (const key of Object.keys(row)) {
+    if (!BATTLE_COUNT_COLUMN_REGEX.test(key)) continue;
+    const value = Number(row[key]);
+    if (Number.isFinite(value)) total += value;
+  }
+  return total;
+}
+
 async function main() {
   const serviceAccountRaw = requireEnv('FIREBASE_SERVICE_ACCOUNT');
 
@@ -128,7 +152,7 @@ async function main() {
     (n) => players[n] && players[n].userCode && String(players[n].userCode).trim() !== ''
   );
 
-  console.log(`MR更新対象: ${targets.length}件`);
+  console.log(`MR更新対象: ${targets.length}件 (ACT${CURRENT_ACT_NUMBER} 開始日: ${CURRENT_ACT_START_DATE})`);
 
   const updates = {};
   let updatedCount = 0;
@@ -143,6 +167,7 @@ async function main() {
       }
 
       const { mr, characterId } = extractMaxMR(row);
+      const totalBattles = extractTotalBattleCount(row);
 
       if (mr <= 0) {
         console.log(`スキップ: ${name} は有効なMRデータがありません(code=${code})`);
@@ -162,8 +187,13 @@ async function main() {
         updates[`classical_worker_data/players/${name}/maxMRCharacterId`] = characterId;
       }
 
+      // actBattleCount: 現在のACTにおける全キャラ合計試合数(ACTが変わるとCSV側の値ごとリセットされる)
+      updates[`classical_worker_data/players/${name}/actBattleCount`] = totalBattles;
+      updates[`classical_worker_data/players/${name}/currentActNumber`] = CURRENT_ACT_NUMBER;
+      updates[`classical_worker_data/players/${name}/actBattleCountUpdatedAt`] = new Date().toISOString();
+
       updatedCount++;
-      console.log(`${name}: 現在MR=${mr}${mr > existingMaxMR ? '(自己最高を更新)' : ''} (character=${characterId ?? '-'})`);
+      console.log(`${name}: 現在MR=${mr}${mr > existingMaxMR ? '(自己最高を更新)' : ''} / ACT${CURRENT_ACT_NUMBER}試合数=${totalBattles} (character=${characterId ?? '-'})`);
     } catch (e) {
       console.warn(`::warning::${name} の取得に失敗しました(code=${code}): ${e.message}`);
       // 1人のエラーで全体を止めず、他のメンバーの処理を続ける
