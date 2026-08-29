@@ -213,12 +213,9 @@ function renderMyPageWithPlayer(){
       </div>
       <button class="primary" onclick="saveStep4()" style="margin-top:14px;">目標を保存</button>
       <div id="step4-save-status" style="font-size:12px;color:var(--text-dim);margin-top:6px;text-align:center;"></div>
-      <div style="margin-top:16px">
-        <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);letter-spacing:.03em;margin-bottom:6px">ミッション達成率</div>
-        <div class="gauge-row">
-          <div class="gauge"><div class="gauge-fill goal" style="width:${s.goalAchievement!==null?s.goalAchievement.toFixed(0):0}%"></div></div>
-          <span class="gauge-val">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</span>
-        </div>
+      <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,0.04);border-radius:10px;">
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);letter-spacing:.03em;">🎯 ミッション達成率</span>
+        <span style="font-size:28px;font-weight:800;color:var(--goal);">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</span>
       </div>
       </div>
     </div>
@@ -620,7 +617,7 @@ async function recordMatch(){
   // 自分のプレイヤーオブジェクトが存在するか確認してからpush
   if(!data.players[currentPlayer]) {
     data.players[currentPlayer] = {
-      matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', mainGoal:'', mainGoalDone:false,
+      matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false,
       userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[]
     };
   }

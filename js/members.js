@@ -96,17 +96,17 @@ function viewMember(name){
       ${p.actBattleCount ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:8px">ACT${escapeHtml(String(p.currentActNumber||''))}: ${escapeHtml(String(p.actBattleCount))}戦</div>` : ''}
       ${p.userCode ? `<div class="member-usercode" style="margin-bottom:6px">🆔 ${escapeHtml(p.userCode)}</div>` : ''}
       ${(deviceRowDetail || platformRowDetail) ? `<div class="member-meta-row" style="margin-bottom:6px">${deviceRowDetail}${platformRowDetail}</div>` : ''}
-      <div class="gauge-row">
-        <span class="gauge-label">勝率</span>
-        <div class="gauge"><div class="gauge-fill winrate" style="width:${s.winRate.toFixed(0)}%"></div></div>
-        <span class="gauge-val">${s.winRate.toFixed(0)}%</span>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <div style="flex:1;text-align:center;padding:12px 8px;background:rgba(255,255,255,0.04);border-radius:10px;">
+          <div style="font-size:11px;color:var(--text-dim);letter-spacing:.03em;margin-bottom:4px;">勝率</div>
+          <div style="font-size:26px;font-weight:800;color:var(--win);">${s.winRate.toFixed(0)}%</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:12px 8px;background:rgba(255,255,255,0.04);border-radius:10px;">
+          <div style="font-size:11px;color:var(--text-dim);letter-spacing:.03em;margin-bottom:4px;">目標達成</div>
+          <div style="font-size:26px;font-weight:800;color:var(--goal);">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</div>
+        </div>
       </div>
-      <div class="gauge-row">
-        <span class="gauge-label">目標</span>
-        <div class="gauge"><div class="gauge-fill goal" style="width:${s.goalAchievement!==null?s.goalAchievement.toFixed(0):0}%"></div></div>
-        <span class="gauge-val">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</span>
-      </div>
-      <div class="rank-meta" style="margin-top:8px">${s.total}戦 ${s.wins}勝</div>
+      <div class="rank-meta" style="margin-top:10px;text-align:center;font-size:14px;">${s.total}戦 ${s.wins}勝</div>
     </div>
 
     <div class="card">

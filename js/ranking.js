@@ -30,15 +30,12 @@ function renderRanking(){
     }
 
     withBattles.sort((a,b) => b.count - a.count);
-    const maxCount = Math.max(...withBattles.map(p => p.count));
     const actLabel = withBattles[0].actNumber ? `ACT${withBattles[0].actNumber}` : '今シーズン';
 
     let html = '';
     withBattles.forEach((p, i) => {
       const rankLabel = i + 1;
       const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
-      const gaugePercent = maxCount > 0 ? Math.max(0, Math.min((p.count / maxCount) * 100, 100)) : 0;
-
       html += `
         <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
           <div class="rank-num">${medal}</div>
@@ -46,14 +43,7 @@ function renderRanking(){
           <div class="rank-body">
             <div class="rank-top">
               <span class="rank-name">${escapeHtml(p.name)}</span>
-              <span class="rank-meta" style="font-size:20px;font-weight:800;">${p.count}戦</span>
-            </div>
-            <div class="gauge-row">
-              <span class="gauge-label">試合数</span>
-              <div class="gauge">
-                <div class="gauge-fill mr" style="width:${gaugePercent}%;"></div>
-              </div>
-              <span class="gauge-val">${p.count}</span>
+              <span class="rank-meta" style="font-size:24px;font-weight:800;">${p.count}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">戦</span></span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
           </div>
@@ -85,25 +75,12 @@ function renderRanking(){
 
     withMR.sort((a,b) => b.mr - a.mr);
 
-    const MR_MIN = 1200;
-    const MR_MAX = 2400;
-
-    const legendHtml = `
-      <div class="mr-legend">
-        <span class="label">0</span>
-        <div class="gradient-bar"></div>
-        <span class="label">2400</span>
-        <span class="label mid">▼1500(中央値)</span>
-      </div>
-    `;
-
     let html = '';
     withMR.forEach((p, i) => {
       const color = getMRColor(p.mr);
       const rankLabel = i + 1;
       const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
-      const gaugePercent = Math.max(0, Math.min(((p.mr - MR_MIN) / (MR_MAX - MR_MIN)) * 100, 100));
-      
+
       html += `
         <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
           <div class="rank-num" style="color:${color}">${medal}</div>
@@ -111,19 +88,7 @@ function renderRanking(){
           <div class="rank-body">
             <div class="rank-top">
               <span class="rank-name">${escapeHtml(p.name)}</span>
-              <span class="rank-meta" style="font-size:20px;font-weight:800;color:${color}">${p.mr}</span>
-            </div>
-            <div class="gauge-row">
-              <span class="gauge-label">MR</span>
-              <div class="gauge">
-                <div class="gauge-fill mr" style="width:${gaugePercent}%;"></div>
-              </div>
-              <span class="gauge-val" style="color:${color}">${p.mr}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8px;color:var(--text-dim);padding:0 2px;margin-top:2px;">
-              <span>${MR_MIN}</span>
-              <span>中央値:1500</span>
-              <span>${MR_MAX}</span>
+              <span class="rank-meta" style="font-size:26px;font-weight:800;color:${color}">${p.mr}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
           </div>
@@ -138,7 +103,6 @@ function renderRanking(){
         平均MR: <span style="font-weight:800;color:${avgColor};font-size:18px">${avgMR.toFixed(0)}</span>
         （登録者 ${withMR.length}名）
       </div>
-      ${legendHtml}
       ${html}
     `;
     return;
@@ -165,9 +129,7 @@ function renderRanking(){
   ordered.forEach((name, i)=>{
     const s = computeStats(data.players[name]);
     const rankLabel = s.total>0 ? (i+1) : '–';
-    const goalHtml = s.goalAchievement!==null
-      ? `<div class="gauge-row"><span class="gauge-label">目標</span><div class="gauge"><div class="gauge-fill goal" style="width:${s.goalAchievement.toFixed(0)}%"></div></div><span class="gauge-val">${s.goalDone}/${s.goalTotal}</span></div>`
-      : `<div class="gauge-row"><span class="gauge-label">目標</span><div class="gauge"><div class="gauge-fill goal" style="width:0%"></div></div><span class="gauge-val">未設定</span></div>`;
+    const goalText = s.goalAchievement!==null ? `${s.goalDone}/${s.goalTotal}` : '未設定';
     html += `
       <div class="rank-card ${i===0 && s.total>0 ? 'r1':''}">
         <div class="rank-num">${rankLabel}</div>
@@ -177,12 +139,16 @@ function renderRanking(){
             <span class="rank-name">${escapeHtml(name)}</span>
             <span class="rank-meta">${s.total}戦 ${s.wins}勝</span>
           </div>
-          <div class="gauge-row">
-            <span class="gauge-label">勝率</span>
-            <div class="gauge"><div class="gauge-fill winrate" style="width:${s.winRate.toFixed(0)}%"></div></div>
-            <span class="gauge-val">${s.winRate.toFixed(0)}%</span>
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
+              <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">勝率</div>
+              <div style="font-size:20px;font-weight:800;color:var(--win);">${s.winRate.toFixed(0)}%</div>
+            </div>
+            <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
+              <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">目標</div>
+              <div style="font-size:20px;font-weight:800;color:var(--goal);">${goalText}</div>
+            </div>
           </div>
-          ${goalHtml}
           ${memberMetaChipsHtml(data.players[name])}
         </div>
       </div>`;

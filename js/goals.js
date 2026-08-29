@@ -39,12 +39,9 @@ function renderGoalsOverview(){
           <span class="goal-card-chars">操作:${escapeHtml(controlLabel)} ${p.currentMR ? 'MR:'+escapeHtml(p.currentMR) : ''}</span>
         </div>
         ${mainGoalHtml}
-        <div class="mission-rate-block">
-          <div class="mission-rate-label">
-            <span>ミッション達成率</span>
-            <span class="mission-rate-value">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</span>
-          </div>
-          <div class="gauge"><div class="gauge-fill goal" style="width:${s.goalAchievement!==null?s.goalAchievement.toFixed(0):0}%"></div></div>
+        <div class="mission-rate-block" style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="mission-rate-label" style="margin:0;">ミッション達成率</span>
+          <span class="mission-rate-value" style="font-size:22px;">${s.goalAchievement!==null?s.goalDone+'/'+s.goalTotal:'–'}</span>
         </div>
         <div class="subgoal-chips">${chips}${more}</div>
       </div>`;

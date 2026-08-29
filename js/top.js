@@ -489,43 +489,36 @@ function topMrRankingCardHtml(){
   return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
-// ---- 自分のミッションカード: ログイン中の本人のミッションを1つランダム表示(本人にのみ表示) ----
-// (再描画のたびにシャッフルし直さないよう、選出結果をキャッシュする)
+// ---- 試合数ランキングカード: 現在のACTの試合数(全キャラ合計)の上位3名を表示 ----
 
-let topCachedOwnMissionIdx = null;
+function topBattleRankingCardHtml(){
+  const names = Object.keys(data.players);
+  const withBattles = names
+    .map(n => ({name:n, count: parseInt(data.players[n].actBattleCount, 10)}))
+    .filter(p => !isNaN(p.count) && p.count > 0)
+    .sort((a,b)=> b.count - a.count);
 
-function topOwnMissionCardHtml(){
-  const me = getLoggedInPlayer();
-  const p = data.players[me];
-  if(!p){
-    return `<div class="top-card-empty-msg">ログイン情報を確認できませんでした。</div>`;
+  if(withBattles.length===0){
+    return `<div class="top-card-empty-msg">まだ試合数が登録されていません。</div>`;
   }
-  const goals = p.goals || [];
-  if(goals.length===0){
-    topCachedOwnMissionIdx = null;
-    return `<div class="top-card-empty-msg">まだミッションが設定されていません。マイページから設定してください。</div>`;
-  }
-  if(topCachedOwnMissionIdx===null || topCachedOwnMissionIdx>=goals.length){
-    topCachedOwnMissionIdx = Math.floor(Math.random()*goals.length);
-  }
-  const g = goals[topCachedOwnMissionIdx];
-  const iconHtml = p.icon
-    ? `<img class="mission-icon" src="${p.icon}" alt="">`
-    : `<div class="mission-icon-ph">👤</div>`;
-  const statusHtml = g.done
-    ? `<span class="mission-status done">✅ 達成済み</span>`
-    : `<span class="mission-status active">🔥 取組中</span>`;
-  return `
-    <div class="mission-list">
-      <div class="mission-item">
+
+  const medals = ['🥇','🥈','🥉'];
+  const itemsHtml = withBattles.slice(0,3).map((p,i)=>{
+    const player = data.players[p.name];
+    const iconHtml = player.icon
+      ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
+      : `<div class="top-rank-icon-ph">👤</div>`;
+    return `
+      <div class="top-rank-item rank${i+1}">
+        <span class="top-rank-medal">${medals[i]}</span>
         ${iconHtml}
-        <div class="mission-body">
-          <div class="mission-name">${escapeHtml(me)}</div>
-          <div class="mission-text">${escapeHtml(g.text)}</div>
-          ${statusHtml}
+        <div class="top-rank-body">
+          <span class="top-rank-name">${escapeHtml(p.name)}</span>
+          <span class="top-rank-rate">${p.count}戦</span>
         </div>
-      </div>
-    </div>`;
+      </div>`;
+  }).join('');
+  return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
 // ---- ランキングカード: 勝率3位まで表示 ----
@@ -625,16 +618,6 @@ function renderTop(){
         </div>
       </div>
 
-      <div class="top-card top-card--mission">
-        <div class="top-card-head">
-          <div class="top-card-title">📝 自分の課題<span class="top-card-title-note">(ランダムに表示中)</span></div>
-          <a class="top-link-btn" href="mypage.html">見る</a>
-        </div>
-        <div class="top-card-body">
-          ${topOwnMissionCardHtml()}
-        </div>
-      </div>
-
       <div class="top-card top-card--ranking">
         <div class="top-card-head">
           <div class="top-card-title">🏆 勝率ランキング</div>
@@ -652,6 +635,16 @@ function renderTop(){
         </div>
         <div class="top-card-body">
           ${topMrRankingCardHtml()}
+        </div>
+      </div>
+
+      <div class="top-card top-card--battleranking">
+        <div class="top-card-head">
+          <div class="top-card-title">🎮 試合数ランキング</div>
+          <a class="top-link-btn" href="ranking.html">見る</a>
+        </div>
+        <div class="top-card-body">
+          ${topBattleRankingCardHtml()}
         </div>
       </div>
 
