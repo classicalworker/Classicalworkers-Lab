@@ -663,22 +663,30 @@
   .notice-item-clickable:hover{background:rgba(var(--gold-rgb),.1);border-color:var(--gold);}
   .notice-item-clickable:active{transform:scale(0.99);}
 
-  /* -- ランキングカード: 3位まで -- */
+  /* -- ランキングカード: 5位まで(1位のみ大きく強調表示) -- */
   .top-rank-list{display:flex;flex-direction:column;gap:8px;}
   .top-rank-item{
     display:flex;align-items:center;gap:10px;padding:8px 10px;
     border-radius:9px;background:var(--input-bg);border:1px solid var(--panel-border);
   }
-  .top-rank-item.rank1{background:linear-gradient(90deg, rgba(var(--gold-rgb),.1), transparent);border-color:var(--gold);}
+  .top-rank-item.rank1{
+    background:linear-gradient(90deg, rgba(var(--gold-rgb),.1), transparent);border-color:var(--gold);
+    padding:14px 14px;gap:14px;
+  }
   .top-rank-medal{font-size:18px;width:22px;text-align:center;flex-shrink:0;}
+  .top-rank-item.rank1 .top-rank-medal{font-size:30px;width:34px;}
   .top-rank-icon{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--panel-border);}
   .top-rank-icon-ph{
     width:30px;height:30px;border-radius:50%;flex-shrink:0;background:var(--panel);
     border:2px solid var(--panel-border);display:flex;align-items:center;justify-content:center;font-size:13px;
   }
+  .top-rank-item.rank1 .top-rank-icon,
+  .top-rank-item.rank1 .top-rank-icon-ph{width:52px;height:52px;border-color:var(--gold);font-size:22px;}
   .top-rank-body{flex:1;min-width:0;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;}
   .top-rank-name{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .top-rank-rate{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);flex-shrink:0;}
+  .top-rank-item.rank1 .top-rank-name{font-size:18px;}
+  .top-rank-item.rank1 .top-rank-rate{font-size:16px;font-weight:800;color:var(--gold);}
 
   /* -- メンバーカード: ランダムスポットライト表示(3名) -- */
   .top-spotlight-list{display:flex;flex-direction:column;gap:10px;margin-bottom:10px;}
