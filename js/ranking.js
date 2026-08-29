@@ -11,8 +11,63 @@ function renderRanking(){
     <div class="sub-tabs">
       <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 勝率ランキング</div>
       <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
+      <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>
     </div>
   `;
+
+  if(rankingSubTab === 'battles'){
+    const withBattles = names
+      .filter(n => data.players[n].actBattleCount && Number(data.players[n].actBattleCount) > 0)
+      .map(n => ({
+        name: n,
+        count: parseInt(data.players[n].actBattleCount, 10) || 0,
+        actNumber: data.players[n].currentActNumber || ''
+      }));
+
+    if(withBattles.length === 0){
+      el.innerHTML = subTabsHtml + '<div class="empty">試合数が登録されているプレイヤーはいません</div>';
+      return;
+    }
+
+    withBattles.sort((a,b) => b.count - a.count);
+    const maxCount = Math.max(...withBattles.map(p => p.count));
+    const actLabel = withBattles[0].actNumber ? `ACT${withBattles[0].actNumber}` : '今シーズン';
+
+    let html = '';
+    withBattles.forEach((p, i) => {
+      const rankLabel = i + 1;
+      const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
+      const gaugePercent = maxCount > 0 ? Math.max(0, Math.min((p.count / maxCount) * 100, 100)) : 0;
+
+      html += `
+        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
+          <div class="rank-num">${medal}</div>
+          ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
+          <div class="rank-body">
+            <div class="rank-top">
+              <span class="rank-name">${escapeHtml(p.name)}</span>
+              <span class="rank-meta" style="font-size:20px;font-weight:800;">${p.count}戦</span>
+            </div>
+            <div class="gauge-row">
+              <span class="gauge-label">試合数</span>
+              <div class="gauge">
+                <div class="gauge-fill mr" style="width:${gaugePercent}%;"></div>
+              </div>
+              <span class="gauge-val">${p.count}</span>
+            </div>
+            ${memberMetaChipsHtml(data.players[p.name])}
+          </div>
+        </div>`;
+    });
+
+    el.innerHTML = subTabsHtml + `
+      <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
+        ${escapeHtml(actLabel)}の試合数（登録者 ${withBattles.length}名）
+      </div>
+      ${html}
+    `;
+    return;
+  }
 
   if(rankingSubTab === 'mr'){
     const withMR = names
