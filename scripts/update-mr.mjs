@@ -182,8 +182,21 @@ async function main() {
       const { mr, characterId } = extractMaxMR(row);
       const totalBattles = extractTotalBattleCount(row);
 
+      // actBattleCount: 現在のACTにおける全キャラ合計試合数(ACTが変わるとCSV側の値ごとリセットされる)
+      // MRの有無に関わらず、CSVが取得できた時点で従来通り毎日更新する。
+      updates[`classical_worker_data/players/${name}/actBattleCount`] = totalBattles;
+      updates[`classical_worker_data/players/${name}/currentActNumber`] = CURRENT_ACT_NUMBER;
+      updates[`classical_worker_data/players/${name}/actBattleCountUpdatedAt`] = new Date().toISOString();
+
       if (mr <= 0) {
-        console.log(`スキップ: ${name} は有効なMRデータがありません(code=${code})`);
+        // 有効なMRデータがない(=今ACTでまだランクマッチを行っていない)場合は、
+        // currentMRを空にして、表示側で「今ACTランクマッチ未実施」と出せるようにする。
+        // 過去の自己最高値(maxMR)はそのまま保持し、上書きしない。
+        updates[`classical_worker_data/players/${name}/currentMR`] = '';
+        updates[`classical_worker_data/players/${name}/currentMRCharacterId`] = null;
+
+        updatedCount++;
+        console.log(`${name}: MRデータなし(今ACTランクマッチ未実施) / ACT${CURRENT_ACT_NUMBER}試合数=${totalBattles} (code=${code})`);
         continue;
       }
 
@@ -199,11 +212,6 @@ async function main() {
         updates[`classical_worker_data/players/${name}/maxMRUpdatedAt`] = new Date().toISOString();
         updates[`classical_worker_data/players/${name}/maxMRCharacterId`] = characterId;
       }
-
-      // actBattleCount: 現在のACTにおける全キャラ合計試合数(ACTが変わるとCSV側の値ごとリセットされる)
-      updates[`classical_worker_data/players/${name}/actBattleCount`] = totalBattles;
-      updates[`classical_worker_data/players/${name}/currentActNumber`] = CURRENT_ACT_NUMBER;
-      updates[`classical_worker_data/players/${name}/actBattleCountUpdatedAt`] = new Date().toISOString();
 
       updatedCount++;
       console.log(`${name}: 現在MR=${mr}${mr > existingMaxMR ? '(自己最高を更新)' : ''} / ACT${CURRENT_ACT_NUMBER}試合数=${totalBattles} (character=${characterId ?? '-'})`);
