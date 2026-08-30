@@ -555,6 +555,26 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// 入力エラーの見た目(赤枠+シェイク)を付け、フォーカス・スクロールする(必須項目の未入力チェック用)
+function flagFieldError(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('input-error');
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  el.addEventListener('input', function clear(){ el.classList.remove('input-error'); el.removeEventListener('input', clear); });
+  el.focus({preventScroll:true});
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// 入力エラーの見た目(赤枠+シェイク)を付け、スクロールのみ行う(セクション単位・selectなど focus/input挙動が扱いづらい要素向け)
+function flagSectionError(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('input-error');
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
 // 全角文字は2、半角文字は1としてカウントし、指定の全角文字数を超えたら「…」を付けて切り詰める
 // (例: truncateZenkaku(str, 10) は全角10文字分まで表示)
 function truncateZenkaku(str, maxZenkaku){

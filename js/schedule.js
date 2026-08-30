@@ -601,24 +601,6 @@ function renderEventModal(){
   `;
 }
 
-function flagFieldError(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.classList.add('input-error');
-  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-  el.addEventListener('input', function clear(){ el.classList.remove('input-error'); el.removeEventListener('input', clear); });
-  el.focus({preventScroll:true});
-  el.scrollIntoView({behavior:'smooth', block:'center'});
-}
-
-function flagSectionError(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.classList.add('input-error');
-  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-  el.scrollIntoView({behavior:'smooth', block:'center'});
-}
-
 async function submitEventModal(){
   const titleInput = document.getElementById('event-title-input');
   const title = titleInput.value.trim();

@@ -149,18 +149,19 @@ function renderMyPageWithPlayer(){
     <div class="card">
       <h2 class="step-toggle" onclick="toggleMypageStep(2)"><span><span class="tag">STEP 2</span>対戦結果を記録</span><span class="step-toggle-arrow" id="step-arrow-2">▾</span></h2>
       <div class="step-body" id="step-body-2">
-      <label>大会名（オプション）</label>
+      <label>大会名<span class="req-mark">*</span></label>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="event-select" style="flex:1;" onchange="onEventSelect(this.value)">
           <option value="">選択してください</option>
           ${eventOptions}
+          <option value="__casual__" ${selectedEventId==='__casual__'?'selected':''}>野試合</option>
           <option value="__new__" ${selectedEventId==='__new__'?'selected':''}>＋ 新規入力</option>
         </select>
       </div>
       <div id="new-event-input-box" style="display:${selectedEventId==='__new__'?'block':'none'};margin-top:6px;">
         <input type="text" id="new-event-name" placeholder="大会名を入力" style="width:100%;" value="${escapeHtml(newEventNameInput)}" oninput="newEventNameInput=this.value">
       </div>
-      <div class="attend-toggle-hint">予定タブで登録した予定・大会記録を選択すると、その大会と結果が連携されます。</div>
+      <div class="attend-toggle-hint">予定タブで登録した予定・大会記録を選択すると、その大会と結果が連携されます。大会に紐付かない野試合の場合は「野試合」を選択してください。</div>
 
       <label style="margin-top:12px">対戦相手（入力または選択）</label>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -598,20 +599,32 @@ async function recordMatch(){
   let eventName = '';
   let eventId = null;
   let eventType = null;
-  if(eventSelect){
-    const selectedValue = eventSelect.value;
-    if(selectedValue === '__new__'){
-      const newEventInput = document.getElementById('new-event-name');
-      eventName = newEventInput ? newEventInput.value.trim() : '';
-    } else if(selectedValue.startsWith('event:')){
-      const id = selectedValue.slice(6);
-      const ev = data.events.find(e => e.id === id);
-      if(ev){ eventName = ev.title; eventId = id; eventType = 'event'; }
-    } else if(selectedValue.startsWith('tournament:')){
-      const id = selectedValue.slice(11);
-      const t = data.tournaments.find(t => t.id === id);
-      if(t){ eventName = t.title; eventId = id; eventType = 'tournament'; }
-    }
+  const selectedValue = eventSelect ? eventSelect.value : '';
+  if(selectedValue === '__new__'){
+    const newEventInput = document.getElementById('new-event-name');
+    eventName = newEventInput ? newEventInput.value.trim() : '';
+  } else if(selectedValue === '__casual__'){
+    eventName = '野試合';
+  } else if(selectedValue.startsWith('event:')){
+    const id = selectedValue.slice(6);
+    const ev = data.events.find(e => e.id === id);
+    if(ev){ eventName = ev.title; eventId = id; eventType = 'event'; }
+  } else if(selectedValue.startsWith('tournament:')){
+    const id = selectedValue.slice(11);
+    const t = data.tournaments.find(t => t.id === id);
+    if(t){ eventName = t.title; eventId = id; eventType = 'tournament'; }
+  }
+
+  // 大会名は必須。未選択、または「＋新規入力」を選んだのに大会名が空のままの場合は保存させない
+  if(!selectedValue){
+    showToast('大会名を選択してください(大会に紐付かない場合は「野試合」を選択)');
+    flagSectionError('event-select');
+    return;
+  }
+  if(selectedValue === '__new__' && !eventName){
+    showToast('大会名を入力してください');
+    flagFieldError('new-event-name');
+    return;
   }
   
   // 自分のプレイヤーオブジェクトが存在するか確認してからpush
