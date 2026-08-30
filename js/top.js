@@ -235,30 +235,34 @@ function topAttendanceDayCardHtml(entry, totalMembers){
   const yes = values.filter(s=>s==='yes').length;
   const maybe = values.filter(s=>s==='maybe').length;
   const no = values.filter(s=>s==='no').length;
-  const pending = Math.max(totalMembers - yes - maybe - no, 0);
+  const watch = values.filter(s=>s==='watch').length;
+  const pending = Math.max(totalMembers - yes - maybe - no - watch, 0);
   const mine = currentPlayer ? dayAtt[currentPlayer] : null;
 
   const todayStr = new Date().toISOString().slice(0,10);
   const deadlinePassed = !!(ev.attendanceDeadline && todayStr > ev.attendanceDeadline);
 
   // 出席期限を過ぎたら、回答用のボタンは非表示にし、
-  // 「未定」「出席(参加メンバー)」の件数のみを確認用に表示する
+  // 「未定」「観戦」「出席(参加メンバー)」の件数のみを確認用に表示する
   const summaryHtml = deadlinePassed ? `
       <div class="top-attend-summary">
         <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
+        <div class="top-attend-chip watch">👀 観戦 ${watch}</div>
         <div class="top-attend-chip yes">○ 参加メンバー ${yes}</div>
       </div>` : `
       <div class="top-attend-summary">
         <div class="top-attend-chip yes">○ 出席 ${yes}</div>
-        <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
         <div class="top-attend-chip no">× 欠席 ${no}</div>
+        <div class="top-attend-chip watch">👀 観戦 ${watch}</div>
+        <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
         <div class="top-attend-chip pending">？ 未回答 ${pending}</div>
       </div>`;
   const buttonsHtml = deadlinePassed ? '' : `
       <div class="attend-buttons">
         <div class="attend-btn yes ${mine==='yes'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','yes')">出席</div>
-        <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','maybe')">未定</div>
         <div class="attend-btn no ${mine==='no'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','no')">欠席</div>
+        <div class="attend-btn watch ${mine==='watch'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','watch')">観戦</div>
+        <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="topSetAttendance('${ev.id}','${day}','maybe')">未定</div>
       </div>`;
 
   return `

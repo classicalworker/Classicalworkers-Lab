@@ -186,7 +186,7 @@ function eventCardHtml(ev, onlyDay){
     dayRowsHtml = daysToShow.map(day=>{
       const dayAtt = (ev.attendance && ev.attendance[day]) || {};
       const mine = currentPlayer ? dayAtt[currentPlayer] : null;
-      const groups = {yes:[], maybe:[], no:[]};
+      const groups = {yes:[], maybe:[], no:[], watch:[]};
       Object.entries(dayAtt).forEach(([n,st])=>{ if(groups[st]) groups[st].push(n); });
       const chipRow = (label, list, cls) => `
         <div class="attend-breakdown-row">
@@ -194,28 +194,34 @@ function eventCardHtml(ev, onlyDay){
           <span class="attend-breakdown-names">${list.length ? list.map(n=>`<span class="name-chip ${cls}">${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`).join('') : '<span class="attend-breakdown-empty">–</span>'}</span>
         </div>`;
       // 出席期限を過ぎたら、回答用のボタンは非表示にし、
-      // 「未定」「出席(参加メンバー)」のみを確認用に表示する(欠席の内訳は表示しない)
+      // 「未定」「観戦」「出席(参加メンバー)」のみを確認用に表示する(欠席の内訳は表示しない)
       const buttonsHtml = deadlinePassed ? '' : `
           <div class="attend-buttons">
             <div class="attend-btn yes ${mine==='yes'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','yes')">出席</div>
-            <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','maybe')">未定</div>
             <div class="attend-btn no ${mine==='no'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','no')">欠席</div>
+            <div class="attend-btn watch ${mine==='watch'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','watch')">観戦</div>
+            <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','maybe')">未定</div>
           </div>`;
       const breakdownHtml = deadlinePassed ? `
           <div class="attend-breakdown">
             ${chipRow('未定', groups.maybe, 'maybe')}
+            ${chipRow('観戦', groups.watch, 'watch')}
             ${chipRow('参加メンバー', groups.yes, 'yes')}
           </div>` : `
           <div class="attend-breakdown">
             ${chipRow('出席', groups.yes, 'yes')}
-            ${chipRow('未定', groups.maybe, 'maybe')}
             ${chipRow('欠席', groups.no, 'no')}
+            ${chipRow('観戦', groups.watch, 'watch')}
+            ${chipRow('未定', groups.maybe, 'maybe')}
           </div>`;
+      // 管理者モードでログイン中は、登録済みメンバーの出欠を代理で自由に編集できるようにする
+      const adminEditHtml = isAdminUnlocked() ? adminAttendEditHtml(ev.id, day, dayAtt) : '';
       return `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--panel-border)">
           ${dates.length>1 ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--gold);margin-bottom:6px">${formatDayShort(day)}</div>` : ''}
           ${buttonsHtml}
           ${breakdownHtml}
+          ${adminEditHtml}
         </div>`;
     }).join('');
   }
@@ -340,6 +346,52 @@ async function setAttendance(eventId, day, status){
   if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
     openDayModal(day);
   }
+}
+
+// 管理者権限: 登録済みメンバー全員分の出欠を一覧表示し、その場で自由に編集できるようにする
+function adminAttendEditHtml(eventId, day, dayAtt){
+  const names = Object.keys(data.players).slice().sort((a,b)=>a.localeCompare(b,'ja'));
+  if(names.length===0) return '';
+  const statusOptions = [
+    {v:'', label:'未回答'},
+    {v:'yes', label:'出席'},
+    {v:'no', label:'欠席'},
+    {v:'watch', label:'観戦'},
+    {v:'maybe', label:'未定'}
+  ];
+  const rowsHtml = names.map(n=>{
+    const current = dayAtt[n] || '';
+    const optionsHtml = statusOptions.map(o=>`<option value="${o.v}" ${current===o.v?'selected':''}>${o.label}</option>`).join('');
+    return `
+      <div class="admin-attend-row">
+        <span class="admin-attend-name">${escapeHtml(n)}</span>
+        <select class="admin-attend-select" onchange="adminSetAttendance('${eventId}','${day}','${escapeHtml(n)}', this.value)">${optionsHtml}</select>
+      </div>`;
+  }).join('');
+  return `
+    <div class="admin-attend-edit">
+      <div class="admin-attend-edit-title">👑 管理者モード:出欠をまとめて編集</div>
+      <div class="admin-attend-edit-list">${rowsHtml}</div>
+    </div>`;
+}
+
+// 管理者権限: 特定メンバーの出欠を代理で自由に設定する(空選択で未回答に戻す)
+async function adminSetAttendance(eventId, day, name, status){
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev) return;
+  if(!ev.attendance) ev.attendance = {};
+  if(!ev.attendance[day]) ev.attendance[day] = {};
+  if(status){
+    ev.attendance[day][name] = status;
+  } else {
+    delete ev.attendance[day][name];
+  }
+  await saveData();
+  renderSchedule();
+  if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
+    openDayModal(day);
+  }
+  showToast(`${name}さんの出欠を更新しました`);
 }
 
 // 管理者権限: 特定メンバーの出欠回答を削除する
