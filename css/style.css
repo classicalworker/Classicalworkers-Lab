@@ -937,7 +937,7 @@
   }
 
   .req-mark{color:var(--loss);margin-left:3px;font-weight:800;}
-  input.input-error{border-color:var(--loss)!important;box-shadow:0 0 0 1px var(--loss);}
+  input.input-error, select.input-error{border-color:var(--loss)!important;box-shadow:0 0 0 1px var(--loss);}
   .date-section{border-radius:10px;transition:box-shadow .15s;}
   .date-section.input-error{box-shadow:0 0 0 1px var(--loss);border-radius:10px;padding:10px;margin:0 -10px;}
   @keyframes shakeX{
