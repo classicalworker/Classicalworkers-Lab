@@ -101,7 +101,7 @@ function renderMyPageWithPlayer(){
       </div>
       <label>ユーザーコード(入力すると最大MRが表示されます)</label>
       <input type="text" id="user-code-input" value="${escapeHtml(p.userCode||'')}" placeholder="例:1234567890">
-      ${(p.currentMR || p.maxMR) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : ''}${(p.currentMR && p.maxMR) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
+      ${(p.currentMR || p.maxMR || p.userCode) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : (p.userCode ? '今ACTランクマッチ未実施' : '')}${(p.maxMR && (p.currentMR || p.userCode)) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
 
       <label>使用デバイス</label>
       <div class="choice-group" style="flex-wrap:wrap">
