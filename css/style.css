@@ -16,6 +16,8 @@
     --loss-rgb:239,68,68;
     --goal:#8b8ff5;
     --goal-rgb:139,143,245;
+    --watch:#38bdf8;
+    --watch-rgb:56,189,248;
     --font-display:"Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
     --font-body:"Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", sans-serif;
     --font-mono:"SF Mono", "Roboto Mono", "Consolas", monospace;
@@ -571,8 +573,9 @@
     border:1px solid var(--panel-border);color:var(--text-dim);background:var(--input-bg);
   }
   .top-attend-chip.yes{color:var(--win);border-color:var(--win);background:rgba(var(--win-rgb),.08);}
-  .top-attend-chip.maybe{color:var(--goal);border-color:var(--goal);background:rgba(var(--goal-rgb),.08);}
+  .top-attend-chip.maybe{color:var(--gold);border-color:var(--gold);background:rgba(var(--gold-rgb),.08);}
   .top-attend-chip.no{color:var(--loss);border-color:var(--loss);background:rgba(var(--loss-rgb),.08);}
+  .top-attend-chip.watch{color:var(--watch);border-color:var(--watch);background:rgba(var(--watch-rgb),.08);}
   .top-attend-chip.pending{color:var(--text-dim);}
 
   /* -- 予定カード: ミニカレンダー(月表示・前後の月にページめくり) -- */
@@ -738,6 +741,7 @@
   .attend-btn.yes.selected{background:var(--win);border-color:var(--win);color:#fff;}
   .attend-btn.no.selected{background:var(--loss);border-color:var(--loss);color:#fff;}
   .attend-btn.maybe.selected{background:var(--gold);border-color:var(--gold);color:#fff;}
+  .attend-btn.watch.selected{background:var(--watch);border-color:var(--watch);color:#fff;}
   .attend-btn:active{transform:scale(0.94);}
 
   .attend-breakdown{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
@@ -755,12 +759,26 @@
   .name-chip.yes{border-color:var(--win);color:var(--win);}
   .name-chip.maybe{border-color:var(--gold);color:var(--gold);}
   .name-chip.no{border-color:var(--loss);color:var(--loss);}
+  .name-chip.watch{border-color:var(--watch);color:var(--watch);}
   .name-chip-remove{
     background:none;border:none;color:inherit;opacity:.6;cursor:pointer;
     font-size:13px;line-height:1;padding:0;font-family:var(--font-mono);
   }
   .name-chip-remove:hover{opacity:1;}
   .attend-breakdown-empty{font-size:12px;color:var(--text-dim);}
+
+  .admin-attend-edit{
+    margin-top:10px;padding:10px;border-radius:10px;
+    background:rgba(217,166,53,.06);border:1px dashed var(--gold);
+  }
+  .admin-attend-edit-title{font-family:var(--font-mono);font-size:11px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+  .admin-attend-edit-list{display:flex;flex-direction:column;gap:6px;}
+  .admin-attend-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .admin-attend-name{font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .admin-attend-select{
+    font-family:var(--font-mono);font-size:12px;color:var(--text);background:var(--input-bg);
+    border:1px solid var(--panel-border);border-radius:6px;padding:4px 6px;flex-shrink:0;
+  }
 
   .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   .cal-nav-label{font-family:var(--font-display);font-weight:800;font-size:16px;letter-spacing:.03em;}
