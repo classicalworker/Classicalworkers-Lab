@@ -247,13 +247,13 @@ function topAttendanceDayCardHtml(entry, totalMembers){
   const summaryHtml = deadlinePassed ? `
       <div class="top-attend-summary">
         <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
-        <div class="top-attend-chip watch">👀 観戦 ${watch}</div>
+        <div class="top-attend-chip watch">観戦 ${watch}</div>
         <div class="top-attend-chip yes">○ 参加メンバー ${yes}</div>
       </div>` : `
       <div class="top-attend-summary">
         <div class="top-attend-chip yes">○ 出席 ${yes}</div>
         <div class="top-attend-chip no">× 欠席 ${no}</div>
-        <div class="top-attend-chip watch">👀 観戦 ${watch}</div>
+        <div class="top-attend-chip watch">観戦 ${watch}</div>
         <div class="top-attend-chip maybe">△ 未定 ${maybe}</div>
         <div class="top-attend-chip pending">？ 未回答 ${pending}</div>
       </div>`;
