@@ -459,6 +459,33 @@ function resolveConfirmDialog(result){
 
 let picker = { dates: new Set(), year: _today.getFullYear(), month: _today.getMonth() };
 
+// ===== 前日比バッジ生成(MR・試合数ランキングで使用) =====
+// prevValue/currentValueの差分を「▲+15」「▼-8」のようなバッジHTMLで返す。差が無い/前日値が無い場合は空文字。
+function valueDeltaBadgeHtml(prevValue, currentValue, suffix){
+  const prev = (prevValue === null || prevValue === undefined || String(prevValue).trim() === '')
+    ? null : Number(prevValue);
+  const curr = Number(currentValue);
+  if(prev === null || isNaN(prev) || isNaN(curr)) return '';
+  const diff = curr - prev;
+  if(diff === 0) return '';
+  const up = diff > 0;
+  const sign = up ? '+' : '';
+  const arrow = up ? '▲' : '▼';
+  return `<span class="delta-badge ${up ? 'up' : 'down'}">${arrow}${sign}${diff}${suffix || ''}</span>`;
+}
+
+// 順位の変動を「▲2位」「▼1位」のようなバッジHTMLで返す(順位番号は小さいほど上位)。
+// 変動なし、または前日の順位が無い(前日未ランクイン)場合は空文字。
+function rankDeltaBadgeHtml(prevRank, currentRank){
+  const prev = Number(prevRank);
+  const curr = Number(currentRank);
+  if(!prevRank || isNaN(prev) || isNaN(curr) || prev === curr) return '';
+  const diff = prev - curr; // 正なら順位上昇(番号が小さくなった)
+  const up = diff > 0;
+  const arrow = up ? '▲' : '▼';
+  return `<span class="rank-delta-badge ${up ? 'up' : 'down'}">${arrow}${Math.abs(diff)}位</span>`;
+}
+
 function getMRColor(mr){
   const minMR = 0, maxMR = 2400;
   const clamped = Math.max(minMR, Math.min(maxMR, mr));

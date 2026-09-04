@@ -339,6 +339,20 @@
   .rank-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
   .rank-name{font-weight:800;font-size:15px;}
   .rank-meta{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}
+  /* 前日比バッジ(MR・試合数の増減、順位の変動を表示) */
+  .delta-badge{
+    display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:11px;font-weight:800;
+    margin-left:6px;white-space:nowrap;vertical-align:middle;
+  }
+  .delta-badge.up{color:var(--win);}
+  .delta-badge.down{color:var(--loss);}
+  .rank-delta-badge{
+    display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:10px;font-weight:800;
+    padding:1px 6px;border-radius:10px;margin-left:6px;white-space:nowrap;vertical-align:middle;
+  }
+  .rank-delta-badge.up{color:var(--win);background:rgba(var(--win-rgb),.12);}
+  .rank-delta-badge.down{color:var(--loss);background:rgba(var(--loss-rgb),.1);}
+  .rank-num-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .gauge-row{display:flex;align-items:center;gap:8px;margin-top:5px;}
   .gauge-label{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);width:38px;flex-shrink:0;}
   .gauge{
@@ -690,6 +704,8 @@
   .top-rank-rate{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);flex-shrink:0;}
   .top-rank-item.rank1 .top-rank-name{font-size:18px;}
   .top-rank-item.rank1 .top-rank-rate{font-size:16px;font-weight:800;color:var(--gold);}
+  .top-rank-medal-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
+  .top-rank-medal-wrap .rank-delta-badge{margin-left:0;font-size:9px;padding:0 4px;}
 
   /* -- メンバーカード: ランダムスポットライト表示(3名) -- */
   .top-spotlight-list{display:flex;flex-direction:column;gap:10px;margin-bottom:10px;}

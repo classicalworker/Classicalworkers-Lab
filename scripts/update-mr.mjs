@@ -13,6 +13,10 @@
 //                    Capcom側でACTが変わると各キャラのbattle_countも0にリセットされるため、
 //                    その日のCSVに入っている値の合計がそのままACT内の試合数になる(毎日上書き)。
 // - currentActNumber: actBattleCountがどのACTのものかを表す番号(表示用)。
+// - previousMR / previousMRRank:               このスクリプトの実行「前」時点(=前回実行分=前日)の
+//                                                currentMRとMRランキング順位。今回上書きする直前の値をそのまま保存する。
+// - previousActBattleCount / previousBattleRank: 同様に、実行前時点のactBattleCountと試合数ランキング順位。
+//   これらはランキング画面・TOP画面で「前日比(MR/試合数の増減、順位変動)」を表示するために使う。
 //
 // live-status.mjs と同じく、サービスアカウント経由でセキュリティルールをバイパスして
 // 書き込むため、クライアント側からの直接書き込みは database.rules.json 側で禁止したままにできる。
@@ -36,6 +40,30 @@ const MR_COLUMN_REGEX = /^\d{3}_master_rating$/;
 // 「NNN_battle_count」形式(キャラごとの合計試合数)の列だけを抽出する
 // (「NNN_MMM_battle_count」というキャラ対キャラの内訳列は除外する)
 const BATTLE_COUNT_COLUMN_REGEX = /^\d{3}_battle_count$/;
+
+// ===== 前日比較用: 更新前(=このスクリプトの前回実行時点)のランキング順位を算出 =====
+// MRランキング(currentMR降順)での各プレイヤーの順位を { 名前: 順位 } の形で返す
+function computeMRRankMap(playersObj) {
+  const arr = Object.keys(playersObj)
+    .filter((n) => playersObj[n] && playersObj[n].currentMR && String(playersObj[n].currentMR).trim() !== '')
+    .map((n) => ({ name: n, mr: parseInt(playersObj[n].currentMR, 10) || 0 }))
+    .filter((p) => p.mr > 0);
+  arr.sort((a, b) => b.mr - a.mr);
+  const rankMap = {};
+  arr.forEach((p, i) => { rankMap[p.name] = i + 1; });
+  return rankMap;
+}
+
+// 試合数ランキング(actBattleCount降順)での各プレイヤーの順位を { 名前: 順位 } の形で返す
+function computeBattleRankMap(playersObj) {
+  const arr = Object.keys(playersObj)
+    .filter((n) => playersObj[n] && playersObj[n].actBattleCount && Number(playersObj[n].actBattleCount) > 0)
+    .map((n) => ({ name: n, count: parseInt(playersObj[n].actBattleCount, 10) || 0 }));
+  arr.sort((a, b) => b.count - a.count);
+  const rankMap = {};
+  arr.forEach((p, i) => { rankMap[p.name] = i + 1; });
+  return rankMap;
+}
 
 function requireEnv(name) {
   const v = process.env[name];
@@ -167,6 +195,10 @@ async function main() {
 
   console.log(`MR更新対象: ${targets.length}件 (ACT${CURRENT_ACT_NUMBER} 開始日: ${CURRENT_ACT_START_DATE})`);
 
+  // 上書きする前の(=前日時点の)ランキング順位を先に算出しておく
+  const prevMRRankMap = computeMRRankMap(players);
+  const prevBattleRankMap = computeBattleRankMap(players);
+
   const updates = {};
   let updatedCount = 0;
 
@@ -181,6 +213,16 @@ async function main() {
 
       const { mr, characterId } = extractMaxMR(row);
       const totalBattles = extractTotalBattleCount(row);
+
+      // 前日比較用: 上書きする直前の値・順位をそのまま「前日分」として保存する
+      const prevMRValue = players[name].currentMR;
+      updates[`classical_worker_data/players/${name}/previousMR`] =
+        (prevMRValue && String(prevMRValue).trim() !== '') ? String(prevMRValue) : '';
+      updates[`classical_worker_data/players/${name}/previousMRRank`] = prevMRRankMap[name] || null;
+
+      const prevBattleCount = parseInt(players[name].actBattleCount, 10) || 0;
+      updates[`classical_worker_data/players/${name}/previousActBattleCount`] = prevBattleCount;
+      updates[`classical_worker_data/players/${name}/previousBattleRank`] = prevBattleRankMap[name] || null;
 
       // actBattleCount: 現在のACTにおける全キャラ合計試合数(ACTが変わるとCSV側の値ごとリセットされる)
       // MRの有無に関わらず、CSVが取得できた時点で従来通り毎日更新する。

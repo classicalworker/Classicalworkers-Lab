@@ -21,7 +21,9 @@ function renderRanking(){
       .map(n => ({
         name: n,
         count: parseInt(data.players[n].actBattleCount, 10) || 0,
-        actNumber: data.players[n].currentActNumber || ''
+        actNumber: data.players[n].currentActNumber || '',
+        previousCount: data.players[n].previousActBattleCount,
+        previousRank: data.players[n].previousBattleRank
       }));
 
     if(withBattles.length === 0){
@@ -36,14 +38,19 @@ function renderRanking(){
     withBattles.forEach((p, i) => {
       const rankLabel = i + 1;
       const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
+      const countBadge = valueDeltaBadgeHtml(p.previousCount, p.count, '戦');
+      const rankBadge = rankDeltaBadgeHtml(p.previousRank, rankLabel);
       html += `
         <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
-          <div class="rank-num">${medal}</div>
+          <div class="rank-num-wrap">
+            <div class="rank-num">${medal}</div>
+            ${rankBadge}
+          </div>
           ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
               <span class="rank-name">${escapeHtml(p.name)}</span>
-              <span class="rank-meta" style="font-size:24px;font-weight:800;">${p.count}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">戦</span></span>
+              <span class="rank-meta" style="font-size:24px;font-weight:800;">${p.count}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">戦</span>${countBadge}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
           </div>
@@ -64,7 +71,9 @@ function renderRanking(){
       .filter(n => data.players[n].currentMR && String(data.players[n].currentMR).trim() !== '')
       .map(n => ({
         name: n,
-        mr: parseInt(data.players[n].currentMR, 10) || 0
+        mr: parseInt(data.players[n].currentMR, 10) || 0,
+        previousMR: data.players[n].previousMR,
+        previousRank: data.players[n].previousMRRank
       }))
       .filter(p => p.mr > 0);
 
@@ -80,15 +89,20 @@ function renderRanking(){
       const color = getMRColor(p.mr);
       const rankLabel = i + 1;
       const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
+      const mrBadge = valueDeltaBadgeHtml(p.previousMR, p.mr, '');
+      const rankBadge = rankDeltaBadgeHtml(p.previousRank, rankLabel);
 
       html += `
         <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
-          <div class="rank-num" style="color:${color}">${medal}</div>
+          <div class="rank-num-wrap">
+            <div class="rank-num" style="color:${color}">${medal}</div>
+            ${rankBadge}
+          </div>
           ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
               <span class="rank-name">${escapeHtml(p.name)}</span>
-              <span class="rank-meta" style="font-size:26px;font-weight:800;color:${color}">${p.mr}</span>
+              <span class="rank-meta" style="font-size:26px;font-weight:800;color:${color}">${p.mr}${mrBadge}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
           </div>

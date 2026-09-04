@@ -466,7 +466,12 @@ function topGoalsCardHtml(){
 function topMrRankingCardHtml(){
   const names = Object.keys(data.players);
   const withMr = names
-    .map(n => ({name:n, mr: parseInt(data.players[n].currentMR, 10)}))
+    .map(n => ({
+      name:n,
+      mr: parseInt(data.players[n].currentMR, 10),
+      previousMR: data.players[n].previousMR,
+      previousRank: data.players[n].previousMRRank
+    }))
     .filter(p => !isNaN(p.mr) && p.mr > 0)
     .sort((a,b)=> b.mr - a.mr);
 
@@ -480,13 +485,18 @@ function topMrRankingCardHtml(){
     const iconHtml = player.icon
       ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
       : `<div class="top-rank-icon-ph">👤</div>`;
+    const rankBadge = rankDeltaBadgeHtml(p.previousRank, i+1);
+    const mrBadge = valueDeltaBadgeHtml(p.previousMR, p.mr, '');
     return `
       <div class="top-rank-item rank${i+1}">
-        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
+        <div class="top-rank-medal-wrap">
+          <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
+          ${rankBadge}
+        </div>
         ${iconHtml}
         <div class="top-rank-body">
           <span class="top-rank-name">${escapeHtml(p.name)}</span>
-          <span class="top-rank-rate">MR ${p.mr}</span>
+          <span class="top-rank-rate">MR ${p.mr}${mrBadge}</span>
         </div>
       </div>`;
   }).join('');
@@ -498,7 +508,12 @@ function topMrRankingCardHtml(){
 function topBattleRankingCardHtml(){
   const names = Object.keys(data.players);
   const withBattles = names
-    .map(n => ({name:n, count: parseInt(data.players[n].actBattleCount, 10)}))
+    .map(n => ({
+      name:n,
+      count: parseInt(data.players[n].actBattleCount, 10),
+      previousCount: data.players[n].previousActBattleCount,
+      previousRank: data.players[n].previousBattleRank
+    }))
     .filter(p => !isNaN(p.count) && p.count > 0)
     .sort((a,b)=> b.count - a.count);
 
@@ -512,13 +527,18 @@ function topBattleRankingCardHtml(){
     const iconHtml = player.icon
       ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
       : `<div class="top-rank-icon-ph">👤</div>`;
+    const rankBadge = rankDeltaBadgeHtml(p.previousRank, i+1);
+    const countBadge = valueDeltaBadgeHtml(p.previousCount, p.count, '戦');
     return `
       <div class="top-rank-item rank${i+1}">
-        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
+        <div class="top-rank-medal-wrap">
+          <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
+          ${rankBadge}
+        </div>
         ${iconHtml}
         <div class="top-rank-body">
           <span class="top-rank-name">${escapeHtml(p.name)}</span>
-          <span class="top-rank-rate">${p.count}戦</span>
+          <span class="top-rank-rate">${p.count}戦${countBadge}</span>
         </div>
       </div>`;
   }).join('');
