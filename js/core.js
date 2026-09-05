@@ -711,21 +711,27 @@ function memberMetaChipsHtml(p){
 
 // Discord CP(総取得量ベースの通貨)ランキングを、CP降順で返す。
 // [{name, cp, totalMR, tier, color}, ...]
+// Discord CPランキングを、日々の日報(discordDailyReports)のCP増減を積み上げて算出する。
+// 総取得MR/tierのスナップショットには依存せず、取り込んだ日報の合計だけを見るため、
+// 同じ日付を読み込み直しても二重計上されない(日付ごとに上書きされるため)。
+// [{name, cp, mrGain}, ...] (cp降順)
 function discordCpRankingList(){
-  const names = Object.keys(data.players).filter(n=>{
-    const p = data.players[n];
-    return p.discordCP !== '' && p.discordCP !== undefined && p.discordCP !== null;
+  const totals = {}; // name -> {cp, mrGain}
+  const reports = data.discordDailyReports || {};
+  Object.keys(reports).forEach(date=>{
+    const dayData = reports[date] || {};
+    Object.keys(dayData).forEach(name=>{
+      if(!data.players[name]) return;
+      if(!totals[name]) totals[name] = {cp:0, mrGain:0};
+      totals[name].cp += Number(dayData[name].cpGain)||0;
+      totals[name].mrGain += Number(dayData[name].mrGain)||0;
+    });
   });
-  const arr = names.map(n=>{
-    const p = data.players[n];
-    return {
-      name: n,
-      cp: Number(p.discordCP)||0,
-      totalMR: Number(p.discordTotalMR)||0,
-      tier: p.discordTier,
-      color: p.discordColor || 'var(--text-dim)'
-    };
-  });
+  const arr = Object.keys(totals).map(name=>({
+    name,
+    cp: totals[name].cp,
+    mrGain: totals[name].mrGain
+  }));
   arr.sort((a,b)=>b.cp - a.cp);
   return arr;
 }
