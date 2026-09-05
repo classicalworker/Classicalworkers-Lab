@@ -160,7 +160,7 @@ function adminMemberEditHtml(){
         <input type="text" value="${escapeHtml(p.maxMR||'')}" placeholder="最高MR" style="max-width:90px;"
           onchange="adminUpdatePlayerField('${escapeHtml(n)}','maxMR',this.value)">
         <input type="text" value="${escapeHtml(p.seasonStartMR||'')}" placeholder="シーズン開始MR" style="max-width:110px;"
-          onchange="adminUpdatePlayerField('${escapeHtml(n)}','seasonStartMR',this.value)">
+          onchange="adminUpdateSeasonStartMR('${escapeHtml(n)}',this.value)">
         <label style="display:flex;align-items:center;gap:4px;margin:0;flex-shrink:0;font-size:11px;">
           <input type="checkbox" style="width:15px;height:15px;" ${p.mainGoalDone?'checked':''}
             onchange="adminUpdatePlayerField('${escapeHtml(n)}','mainGoalDone',this.checked)">達成
@@ -189,6 +189,18 @@ async function adminUpdatePlayerField(name, field, value){
     p.mainGoalAchievedAt = null;
   }
   p[field] = value;
+  await saveData();
+  showToast('更新しました');
+}
+
+// シーズン開始MRの手動修正: 今ACT分として確定させ、自動更新スクリプトに上書きされないようにする
+// (空欄に戻した場合は自動記録の対象に戻す)
+async function adminUpdateSeasonStartMR(name, value){
+  const p = data.players[name];
+  if(!p) return;
+  const trimmed = String(value).trim();
+  p.seasonStartMR = trimmed;
+  p.seasonStartMRAct = trimmed ? CURRENT_ACT_NUMBER : null;
   await saveData();
   showToast('更新しました');
 }

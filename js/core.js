@@ -1,5 +1,9 @@
 const database = firebase.database();
 
+// scripts/update-mr.mjs の CURRENT_ACT_NUMBER と必ず同じ値にしておくこと
+// (シーズン開始MRを「今ACTで自動記録済みかどうか」判定するために使う)
+const CURRENT_ACT_NUMBER = 13;
+
 const STORAGE_KEY = 'classical_worker_2026_data';
 const SEED_PLAYERS = ["にゃんたかたー","プライドチキン","キタロー","ウーロン茶","れんたん","うーろん","ちゃぶ台","シャミセン","なかじま","ゆび","kaz_bwc","こなつ","エインセル河本","せば","しみちん","けんじろう","SAJ","AKAZUKIN","田井中 良樹","こうへー","でみ。","甘えっさん","ラスペーシア","Anne","ののの","shinsei","ココノツ","KFC-11","かーず","横須賀ふたば","サクリ"];
 
@@ -55,7 +59,7 @@ let tabStates = {
 function defaultData(){
   const players = {};
   SEED_PLAYERS.forEach(n => players[n] = {
-    matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', seasonStartMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+    matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', seasonStartMR:'', seasonStartMRAct:null, actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:'',
@@ -104,6 +108,7 @@ function normalizeData(data){
       if (p.maxMR === undefined) p.maxMR = '';
       if (p.currentMR === undefined) p.currentMR = '';
       if (p.seasonStartMR === undefined) p.seasonStartMR = '';
+      if (p.seasonStartMRAct === undefined) p.seasonStartMRAct = null;
       if (p.actBattleCount === undefined) p.actBattleCount = '';
       if (p.currentActNumber === undefined) p.currentActNumber = '';
       if (p.mainGoal === undefined) p.mainGoal = '';

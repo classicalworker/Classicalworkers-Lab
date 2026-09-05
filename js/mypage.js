@@ -111,9 +111,15 @@ function renderMyPageWithPlayer(){
       <input type="text" id="user-code-input" value="${escapeHtml(p.userCode||'')}" placeholder="例:1234567890">
       ${(p.currentMR || p.maxMR || p.userCode) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : (p.userCode ? '今ACTランクマッチ未実施' : '')}${(p.maxMR && (p.currentMR || p.userCode)) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
 
-      <label>シーズン開始MR（CVC算出用・任意）</label>
+      <label>シーズン開始MR（CVC算出用）</label>
       <input type="text" id="season-start-mr-input" value="${escapeHtml(p.seasonStartMR||'')}" placeholder="例:1650">
-      <div class="attend-toggle-hint">シーズン開始時点のMRを入力しておくと、下の対戦履歴（対外試合）をもとに「CVC（コミュニティ貢献度）」ランキングが算出されます。</div>
+      <div class="attend-toggle-hint">${
+        p.userCode
+          ? (parseInt(p.seasonStartMRAct,10) === CURRENT_ACT_NUMBER
+              ? `ACT${CURRENT_ACT_NUMBER}開始時のMRを自動記録済みです。基本的に変更は不要ですが、必要であれば修正できます。`
+              : `ユーザーコードが登録されているため、今ACT(ACT${CURRENT_ACT_NUMBER})で初めてMRを取得したタイミングで自動的に記録されます(空欄のままでもOKです)。`)
+          : `ユーザーコードが未登録のため自動取得できません。シーズン開始時点のMRをここに入力してください。`
+      }下の対戦履歴（対外試合）と合わせて「CVC（コミュニティ貢献度）」ランキングが算出されます。</div>
 
       <label>使用デバイス</label>
       <div class="choice-group" style="flex-wrap:wrap">
@@ -341,7 +347,11 @@ async function saveProfileStep2(){
   const player = data.players[currentPlayer];
   player.controlTypes = controlTypes;
   // maxMRはユーザーコードをもとに自動取得されるため、ここでは書き換えない
+  // シーズン開始MRを保存する際は「今ACT分として確定した値」であることを記録しておく。
+  // これにより、値を変更しない限り自動更新スクリプト側で上書きされなくなる
+  // (未入力に戻した場合は再び自動記録の対象に戻る)。
   player.seasonStartMR = seasonStartMR;
+  player.seasonStartMRAct = seasonStartMR ? CURRENT_ACT_NUMBER : null;
   player.userCode = userCode;
   player.devices = devices;
   player.deviceName = deviceName;
