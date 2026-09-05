@@ -82,6 +82,7 @@ function viewMember(name){
     : '<div class="empty">まだ記録がありません</div>';
 
   const mrColor = p.currentMR ? getMRColor(parseInt(p.currentMR)||0) : 'var(--text-dim)';
+  const cvcInfo = getCVCForPlayer(name);
   const deviceRowDetail = deviceChipsHtml(p);
   const platformRowDetail = platformChipsHtml(p);
   const iconHeaderHtml = p.icon ? `<img class="member-icon-lg" src="${p.icon}" alt="">` : '';
@@ -98,6 +99,7 @@ function viewMember(name){
         : (p.userCode ? `<div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--text-dim);margin-bottom:4px">今ACTランクマッチ未実施</div>` : '')}
       ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:4px">最大MR: ${escapeHtml(p.maxMR)}</div>` : ''}
       ${p.actBattleCount ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:8px">ACT${escapeHtml(String(p.currentActNumber||''))}: ${escapeHtml(String(p.actBattleCount))}戦</div>` : ''}
+      ${cvcInfo ? `<div style="font-family:var(--font-mono);font-size:14px;color:var(--gold);margin-bottom:8px">🎖️ CVC: ${cvcInfo.cvc.toFixed(1)}（対外試合${cvcInfo.matchCount}戦のコミュニティ貢献度）</div>` : ''}
       ${p.userCode ? `<div class="member-usercode" style="margin-bottom:6px">🆔 ${escapeHtml(p.userCode)}</div>` : ''}
       ${(deviceRowDetail || platformRowDetail) ? `<div class="member-meta-row" style="margin-bottom:6px">${deviceRowDetail}${platformRowDetail}</div>` : ''}
       <div style="display:flex;gap:10px;margin-top:12px;">
