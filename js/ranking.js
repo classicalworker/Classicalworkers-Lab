@@ -12,8 +12,47 @@ function renderRanking(){
       <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 勝率ランキング</div>
       <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
       <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>
+      <div class="sub-tab ${rankingSubTab === 'cp' ? 'active' : ''}" onclick="switchRankingSubTab('cp')">💰 CPランキング</div>
     </div>
   `;
+
+  if(rankingSubTab === 'cp'){
+    const cpList = discordCpRankingList();
+    if(cpList.length === 0){
+      el.innerHTML = subTabsHtml + '<div class="empty">Discordの日報がまだ取り込まれていません（管理者ページから取り込めます）</div>';
+      return;
+    }
+
+    let html = '';
+    cpList.forEach((p, i)=>{
+      const rankLabel = i + 1;
+      const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
+      const tierText = (p.tier !== '' && p.tier !== undefined && p.tier !== null) ? `tier${escapeHtml(String(p.tier))}` : '';
+      html += `
+        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
+          <div class="rank-num-wrap">
+            <div class="rank-num" style="color:${p.color}">${medal}</div>
+          </div>
+          ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
+          <div class="rank-body">
+            <div class="rank-top">
+              <span class="rank-name">${escapeHtml(p.name)}</span>
+              <span class="rank-meta" style="font-size:24px;font-weight:800;color:${p.color}">${p.cp}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">CP</span></span>
+            </div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">総取得MR ${p.totalMR} ${tierText ? `・ ${tierText}` : ''}</div>
+            ${memberMetaChipsHtml(data.players[p.name])}
+          </div>
+        </div>`;
+    });
+
+    el.innerHTML = subTabsHtml + `
+      <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
+        Discordの日報から取り込んだCP残量（登録者 ${cpList.length}名）
+      </div>
+      ${html}
+    `;
+    return;
+  }
 
   if(rankingSubTab === 'battles'){
     const withBattles = names

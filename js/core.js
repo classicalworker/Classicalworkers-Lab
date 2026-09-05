@@ -58,9 +58,10 @@ function defaultData(){
     matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
-    twitchLogin:'', pin:''
+    twitchLogin:'', pin:'',
+    discordName:'', discordCP:'', discordTotalMR:'', discordTier:'', discordColor:'', discordCurrentMRText:'', discordUpdatedAt:''
   });
-  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[]};
+  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[], discordDailyReports:{}};
 }
 
 // データ補正用の共通関数
@@ -115,6 +116,15 @@ function normalizeData(data){
       if (p.isLive === undefined) p.isLive = false;
       if (p.twitchLogin === undefined) p.twitchLogin = '';
       if (p.pin === undefined) p.pin = '';
+
+      // Discord bot(sf6bot_test)の日報エクスポートから取り込むフィールド
+      if (p.discordName === undefined) p.discordName = '';
+      if (p.discordCP === undefined) p.discordCP = '';
+      if (p.discordTotalMR === undefined) p.discordTotalMR = '';
+      if (p.discordTier === undefined) p.discordTier = '';
+      if (p.discordColor === undefined) p.discordColor = '';
+      if (p.discordCurrentMRText === undefined) p.discordCurrentMRText = '';
+      if (p.discordUpdatedAt === undefined) p.discordUpdatedAt = '';
       
       // matches内の各エントリも補正
       p.matches.forEach(m => {
@@ -159,6 +169,12 @@ function normalizeData(data){
   // announcements(お知らせ)の補正
   if (!Array.isArray(data.announcements)) {
     data.announcements = [];
+  }
+
+  // discordDailyReports(Discord日報の取り込み結果)の補正
+  // { "YYYY-MM-DD": { "サイト上のプレイヤー名": {mrGain, cpGain} } }
+  if (!data.discordDailyReports || typeof data.discordDailyReports !== 'object') {
+    data.discordDailyReports = {};
   }
   
   // 古いプロパティを削除
@@ -686,6 +702,32 @@ function memberMetaChipsHtml(p){
   const platformRow = platformChipsHtml(p);
   if(!formatChip && !deviceRow && !platformRow) return '';
   return `<div class="member-meta-row">${formatChip}${deviceRow}${platformRow}</div>`;
+}
+
+// ===== Discord日報(sf6bot_test)取り込みデータ関連のヘルパー =====
+// 管理者ページからエクスポートJSONを取り込むと、各プレイヤーに
+// discordCP / discordTotalMR / discordTier / discordColor 等がセットされる。
+// 詳しい取り込みロジックは admin.js 側にある。
+
+// Discord CP(総取得量ベースの通貨)ランキングを、CP降順で返す。
+// [{name, cp, totalMR, tier, color}, ...]
+function discordCpRankingList(){
+  const names = Object.keys(data.players).filter(n=>{
+    const p = data.players[n];
+    return p.discordCP !== '' && p.discordCP !== undefined && p.discordCP !== null;
+  });
+  const arr = names.map(n=>{
+    const p = data.players[n];
+    return {
+      name: n,
+      cp: Number(p.discordCP)||0,
+      totalMR: Number(p.discordTotalMR)||0,
+      tier: p.discordTier,
+      color: p.discordColor || 'var(--text-dim)'
+    };
+  });
+  arr.sort((a,b)=>b.cp - a.cp);
+  return arr;
 }
 
 
