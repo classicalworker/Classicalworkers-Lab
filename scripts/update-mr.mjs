@@ -247,17 +247,6 @@ async function main() {
       updates[`classical_worker_data/players/${name}/currentMRUpdatedAt`] = new Date().toISOString();
       updates[`classical_worker_data/players/${name}/currentMRCharacterId`] = characterId;
 
-      // シーズン開始MR(CVC算出用): 今ACTで初めて有効なMRを取得できたタイミングの値を
-      // 「シーズン開始MR」として自動的に記録する(ACTが変わるまで上書きしない)。
-      // 既に今ACT分として記録済みの場合は何もしない(手動で上書きした値も尊重する)。
-      const seasonStartMRAct = parseInt(players[name].seasonStartMRAct, 10) || 0;
-      if (seasonStartMRAct !== CURRENT_ACT_NUMBER) {
-        updates[`classical_worker_data/players/${name}/seasonStartMR`] = String(mr);
-        updates[`classical_worker_data/players/${name}/seasonStartMRAct`] = CURRENT_ACT_NUMBER;
-        updates[`classical_worker_data/players/${name}/seasonStartMRUpdatedAt`] = new Date().toISOString();
-        console.log(`${name}: ACT${CURRENT_ACT_NUMBER}のシーズン開始MRを自動記録しました(${mr})`);
-      }
-
       // maxMR: 過去最高値。今日のMRがこれまでの記録を上回った場合のみ更新する。
       const existingMaxMR = parseInt(players[name].maxMR, 10) || 0;
       if (mr > existingMaxMR) {

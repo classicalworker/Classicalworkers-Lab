@@ -1,8 +1,3 @@
-// CVC計算用の入力欄（対戦結果を記録するフォーム内で使用、再描画のたびに保持する）
-let matchCharacterInput = '';
-let matchExternal = true;
-let matchOpponentMRInput = '';
-
 function renderMyPage(){
   const el = document.getElementById('view-mypage');
 
@@ -14,9 +9,6 @@ function renderMyPage(){
   selectedEventId = '';
   newEventNameInput = '';
   editingMatchIndex = null;
-  matchCharacterInput = '';
-  matchExternal = true;
-  matchOpponentMRInput = '';
 
   el.innerHTML = `
     <div class="card">
@@ -111,16 +103,6 @@ function renderMyPageWithPlayer(){
       <input type="text" id="user-code-input" value="${escapeHtml(p.userCode||'')}" placeholder="例:1234567890">
       ${(p.currentMR || p.maxMR || p.userCode) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : (p.userCode ? '今ACTランクマッチ未実施' : '')}${(p.maxMR && (p.currentMR || p.userCode)) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
 
-      <label>シーズン開始MR（CVC算出用）</label>
-      <input type="text" id="season-start-mr-input" value="${escapeHtml(p.seasonStartMR||'')}" placeholder="例:1650">
-      <div class="attend-toggle-hint">${
-        p.userCode
-          ? (parseInt(p.seasonStartMRAct,10) === CURRENT_ACT_NUMBER
-              ? `ACT${CURRENT_ACT_NUMBER}開始時のMRを自動記録済みです。基本的に変更は不要ですが、必要であれば修正できます。`
-              : `ユーザーコードが登録されているため、今ACT(ACT${CURRENT_ACT_NUMBER})で初めてMRを取得したタイミングで自動的に記録されます(空欄のままでもOKです)。`)
-          : `ユーザーコードが未登録のため自動取得できません。シーズン開始時点のMRをここに入力してください。`
-      }下の対戦履歴（対外試合）と合わせて「CVC（コミュニティ貢献度）」ランキングが算出されます。</div>
-
       <label>使用デバイス</label>
       <div class="choice-group" style="flex-wrap:wrap">
         ${deviceChecksHtml}
@@ -207,21 +189,6 @@ function renderMyPageWithPlayer(){
         <div class="choice win ${pendingResult==='win'?'selected':''}" onclick="setResult('win')">勝ち</div>
         <div class="choice loss ${pendingResult==='loss'?'selected':''}" onclick="setResult('loss')">負け</div>
       </div>
-
-      <label style="margin-top:12px">使用キャラ（任意・CVC算出用）</label>
-      <input type="text" id="match-character-input" placeholder="例:リュウ" value="${escapeHtml(matchCharacterInput)}" oninput="matchCharacterInput=this.value">
-
-      <label style="margin-top:12px;display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="match-external-checkbox" ${matchExternal?'checked':''} onchange="matchExternal=this.checked; renderMyPageWithPlayer();">
-        <span>対外試合として記録する（CVC集計の対象になります）</span>
-      </label>
-
-      ${matchExternal ? `
-      <div id="match-opponent-mr-box" style="margin-top:12px;">
-        <label>相手MR${(data.players[opponentName] && data.players[opponentName].currentMR) ? '（登録プレイヤーのため自動的に使用されます）' : '（未登録の対戦相手の場合は入力してください）'}</label>
-        <input type="text" id="match-opponent-mr-input" placeholder="例:1800" value="${escapeHtml(matchOpponentMRInput)}" oninput="matchOpponentMRInput=this.value" ${(data.players[opponentName] && data.players[opponentName].currentMR) ? 'disabled' : ''}>
-      </div>` : ''}
-
       <button class="primary" onclick="recordMatch()">記録する</button>
       </div>
     </div>
@@ -342,16 +309,9 @@ async function saveProfileStep2(){
   const isLive = document.getElementById('stream-live-checkbox').checked;
   const twitchLoginRaw = parseTwitchLoginInput(document.getElementById('twitch-login-input').value.trim());
 
-  const seasonStartMR = document.getElementById('season-start-mr-input').value.trim();
-
   const player = data.players[currentPlayer];
   player.controlTypes = controlTypes;
   // maxMRはユーザーコードをもとに自動取得されるため、ここでは書き換えない
-  // シーズン開始MRを保存する際は「今ACT分として確定した値」であることを記録しておく。
-  // これにより、値を変更しない限り自動更新スクリプト側で上書きされなくなる
-  // (未入力に戻した場合は再び自動記録の対象に戻る)。
-  player.seasonStartMR = seasonStartMR;
-  player.seasonStartMRAct = seasonStartMR ? CURRENT_ACT_NUMBER : null;
   player.userCode = userCode;
   player.devices = devices;
   player.deviceName = deviceName;
@@ -504,7 +464,7 @@ function renderHistoryEditable(p){
     if(isEditing){
       // 編集フォーム
       return `
-        <div class="match-edit-row" style="background:rgba(232,178,61,0.08);border:1px solid var(--gold);flex-wrap:wrap;">
+        <div class="match-edit-row" style="background:rgba(232,178,61,0.08);border:1px solid var(--gold);">
           <input type="text" id="edit-opponent-${idx}" value="${escapeHtml(m.opponent)}" placeholder="相手" style="flex:1.5;">
           <div class="score-edit">
             <input type="number" id="edit-score-me-${idx}" value="${escapeHtml(scoreMe)}" min="0" style="width:45px;">
@@ -515,11 +475,6 @@ function renderHistoryEditable(p){
             <option value="win" ${m.result==='win'?'selected':''}>勝ち</option>
             <option value="loss" ${m.result==='loss'?'selected':''}>負け</option>
           </select>
-          <input type="text" id="edit-character-${idx}" value="${escapeHtml(m.character||'')}" placeholder="使用キャラ" style="flex:1;min-width:90px;">
-          <input type="text" id="edit-opponent-mr-${idx}" value="${escapeHtml(m.opponentMR||'')}" placeholder="相手MR" style="width:70px;">
-          <label style="display:flex;align-items:center;gap:4px;font-size:11px;flex-shrink:0;">
-            <input type="checkbox" id="edit-external-${idx}" ${m.external!==false?'checked':''}>対外
-          </label>
           <button class="primary" style="margin:0;padding:4px 10px;font-size:11px;width:auto;" onclick="saveMatchEdit(${idx})">保存</button>
           <button class="ghost" style="margin:0;padding:4px 10px;font-size:11px;" onclick="cancelMatchEdit()">取消</button>
         </div>
@@ -540,7 +495,6 @@ function renderHistoryEditable(p){
             ${eventBadge}
           </div>
           ${m.score ? `<div class="score-display"><span class="score-me">${escapeHtml(scoreMe)}</span><span class="vs">vs</span><span class="score-opp">${escapeHtml(scoreOpp)}</span></div>` : ''}
-          ${(m.character || m.opponentMR) ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${m.character ? `使用:${escapeHtml(m.character)} ` : ''}${m.opponentMR ? `相手MR:${escapeHtml(String(m.opponentMR))} ` : ''}${m.external===false ? '(内部)' : ''}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
           <span class="pill ${m.result}">${m.result==='win'?'WIN':'LOSE'}</span>
@@ -567,9 +521,6 @@ async function saveMatchEdit(idx){
   const scoreMe = parseInt(document.getElementById(`edit-score-me-${idx}`).value, 10) || 0;
   const scoreOpp = parseInt(document.getElementById(`edit-score-opp-${idx}`).value, 10) || 0;
   const result = document.getElementById(`edit-result-${idx}`).value;
-  const character = document.getElementById(`edit-character-${idx}`) ? document.getElementById(`edit-character-${idx}`).value.trim() : '';
-  const isExternal = document.getElementById(`edit-external-${idx}`) ? document.getElementById(`edit-external-${idx}`).checked : true;
-  const opponentMrManual = document.getElementById(`edit-opponent-mr-${idx}`) ? document.getElementById(`edit-opponent-mr-${idx}`).value.trim() : '';
   if(!opponent){ showToast('対戦相手を入力してください'); return; }
 
   const match = data.players[currentPlayer].matches[idx];
@@ -578,27 +529,10 @@ async function saveMatchEdit(idx){
   const oldResult = match.result;
   const newScore = `${scoreMe}-${scoreOpp}`;
 
-  // 相手MRは手入力があればそれを優先し、なければ登録プレイヤーの現在MRを自動使用
-  let opponentMR = '';
-  let mrSource = '';
-  if(isExternal){
-    if(opponentMrManual){
-      opponentMR = opponentMrManual;
-      mrSource = 'manual';
-    } else if(data.players[opponent] && data.players[opponent].currentMR){
-      opponentMR = data.players[opponent].currentMR;
-      mrSource = 'auto';
-    }
-  }
-
   // 自分の試合を更新
   match.opponent = opponent;
   match.score = newScore;
   match.result = result;
-  match.character = character;
-  match.external = isExternal;
-  match.opponentMR = opponentMR;
-  match.mrSource = mrSource;
 
   // 相手の試合も更新（存在する場合）
   if(data.players[oldOpponent]){
@@ -696,34 +630,13 @@ async function recordMatch(){
   // 自分のプレイヤーオブジェクトが存在するか確認してからpush
   if(!data.players[currentPlayer]) {
     data.players[currentPlayer] = {
-      matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', seasonStartMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false,
+      matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false,
       userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[]
     };
   }
   
   // 自分・相手の対戦記録と通知を同じ日時で紐付ける（削除時に通知も一致させて取り消せるように）
   const matchDate = new Date().toISOString();
-
-  // CVC算出用の入力値を取得
-  const characterInput = document.getElementById('match-character-input');
-  const characterUsed = characterInput ? characterInput.value.trim() : '';
-  const externalCheckbox = document.getElementById('match-external-checkbox');
-  const isExternal = externalCheckbox ? externalCheckbox.checked : true;
-  const opponentMrInputEl = document.getElementById('match-opponent-mr-input');
-  const opponentMrManual = opponentMrInputEl ? opponentMrInputEl.value.trim() : '';
-
-  // 相手が登録プレイヤーなら現在MRを自動使用、そうでなければ手入力の値を使う
-  let opponentMR = '';
-  let mrSource = '';
-  if(isExternal){
-    if(data.players[opponent] && data.players[opponent].currentMR){
-      opponentMR = data.players[opponent].currentMR;
-      mrSource = 'auto';
-    } else if(opponentMrManual){
-      opponentMR = opponentMrManual;
-      mrSource = 'manual';
-    }
-  }
 
   data.players[currentPlayer].matches.push({
     opponent, 
@@ -732,11 +645,7 @@ async function recordMatch(){
     eventName,
     eventId,
     eventType,
-    date: matchDate,
-    character: characterUsed,
-    external: isExternal,
-    opponentMR,
-    mrSource
+    date: matchDate
   });
   
   // 相手プレイヤーが存在する場合のみ反映
@@ -749,11 +658,7 @@ async function recordMatch(){
       eventName,
       eventId,
       eventType,
-      date: matchDate,
-      character: '',
-      external: isExternal,
-      opponentMR: (isExternal && data.players[currentPlayer].currentMR) ? data.players[currentPlayer].currentMR : '',
-      mrSource: (isExternal && data.players[currentPlayer].currentMR) ? 'auto' : ''
+      date: matchDate
     });
     // 相手のページを開いたときにポップアップ通知するための記録
     if(!Array.isArray(data.players[opponent].notifications)) data.players[opponent].notifications = [];
@@ -785,9 +690,6 @@ async function recordMatch(){
   savedScoreOpp = 0;
   selectedEventId = '';
   newEventNameInput = '';
-  matchCharacterInput = '';
-  matchExternal = true;
-  matchOpponentMRInput = '';
   await saveData();
   renderMyPageWithPlayer();
   showToast('記録しました');

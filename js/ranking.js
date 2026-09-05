@@ -12,87 +12,8 @@ function renderRanking(){
       <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 勝率ランキング</div>
       <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
       <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>
-      <div class="sub-tab ${rankingSubTab === 'cp' ? 'active' : ''}" onclick="switchRankingSubTab('cp')">💰 CPランキング</div>
-      <div class="sub-tab ${rankingSubTab === 'cvc' ? 'active' : ''}" onclick="switchRankingSubTab('cvc')">🎖️ CVCランキング</div>
     </div>
   `;
-
-  if(rankingSubTab === 'cvc'){
-    const list = computeCVCRanking();
-    if(list.length === 0){
-      el.innerHTML = subTabsHtml + '<div class="empty">CVCを計算するには、マイページで「現在MR」「シーズン開始MR」を登録し、対外試合の対戦結果に相手MRを記録してください</div>';
-      return;
-    }
-
-    let html = '';
-    list.forEach((r, i)=>{
-      const rankLabel = i + 1;
-      const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
-      const p = data.players[r.name];
-      html += `
-        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
-          <div class="rank-num-wrap">
-            <div class="rank-num">${medal}</div>
-          </div>
-          ${p.icon ? `<img class="member-icon" src="${p.icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
-          <div class="rank-body">
-            <div class="rank-top">
-              <span class="rank-name">${escapeHtml(r.name)}</span>
-              <span class="rank-meta" style="font-size:22px;font-weight:800;">${r.cvc.toFixed(1)}<span style="font-size:11px;font-weight:600;color:var(--text-dim);margin-left:2px;">CVC</span></span>
-            </div>
-            <div style="font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.6;">
-              ①対戦経験値×10: ${(r.battleExp*10).toFixed(1)} ／ ②安定感: ${r.stability.toFixed(1)} ／ ③多様性: ${r.diversity.toFixed(1)} ／ ④補正: ×${r.positionAdj.toFixed(2)}
-              <br>対外試合 ${r.matchCount}戦・総セット${r.totalSets}
-            </div>
-            ${memberMetaChipsHtml(p)}
-          </div>
-        </div>`;
-    });
-
-    el.innerHTML = subTabsHtml + `
-      <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
-        Community Victory Contribution（登録者 ${list.length}名／基準値 ${list[0].baseline.toFixed(2)}）
-      </div>
-      ${html}
-    `;
-    return;
-  }
-
-  if(rankingSubTab === 'cp'){
-    const cpList = discordCpRankingList();
-    if(cpList.length === 0){
-      el.innerHTML = subTabsHtml + '<div class="empty">Discordの日報がまだ取り込まれていません（管理者ページから取り込めます）</div>';
-      return;
-    }
-
-    let html = '';
-    cpList.forEach((p, i)=>{
-      const rankLabel = i + 1;
-      const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
-      html += `
-        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
-          <div class="rank-num-wrap">
-            <div class="rank-num">${medal}</div>
-          </div>
-          ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
-          <div class="rank-body">
-            <div class="rank-top">
-              <span class="rank-name">${escapeHtml(p.name)}</span>
-              <span class="rank-meta" style="font-size:24px;font-weight:800;">${p.cp}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">CP</span></span>
-            </div>
-            ${memberMetaChipsHtml(data.players[p.name])}
-          </div>
-        </div>`;
-    });
-
-    el.innerHTML = subTabsHtml + `
-      <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
-        CPランキング（登録者 ${cpList.length}名）
-      </div>
-      ${html}
-    `;
-    return;
-  }
 
   if(rankingSubTab === 'battles'){
     const withBattles = names
@@ -246,12 +167,7 @@ function renderRanking(){
         </div>
       </div>`;
   });
-  el.innerHTML = subTabsHtml + `
-    <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
-      対外試合、内部イベントの勝率（登録者 ${withMatches.length}名）
-    </div>
-    ${html}
-  `;
+  el.innerHTML = subTabsHtml + html;
 }
 
 

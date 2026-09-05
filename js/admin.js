@@ -70,7 +70,6 @@ function adminDashboardHtml(){
     ${adminScheduleShortcutHtml()}
     ${adminMemberEditHtml()}
     ${adminAnnouncementsHtml()}
-    ${adminDiscordImportHtml()}
   `;
 }
 
@@ -113,7 +112,7 @@ async function adminAddMember(){
   if(!name){ showToast('名前を入力してください'); return; }
   if(data.players[name]){ showToast('その名前は既に登録されています'); return; }
   data.players[name] = {
-    matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', seasonStartMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+    matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
@@ -159,8 +158,6 @@ function adminMemberEditHtml(){
           onchange="adminUpdatePlayerField('${escapeHtml(n)}','mainGoal',this.value)">
         <input type="text" value="${escapeHtml(p.maxMR||'')}" placeholder="最高MR" style="max-width:90px;"
           onchange="adminUpdatePlayerField('${escapeHtml(n)}','maxMR',this.value)">
-        <input type="text" value="${escapeHtml(p.seasonStartMR||'')}" placeholder="シーズン開始MR" style="max-width:110px;"
-          onchange="adminUpdateSeasonStartMR('${escapeHtml(n)}',this.value)">
         <label style="display:flex;align-items:center;gap:4px;margin:0;flex-shrink:0;font-size:11px;">
           <input type="checkbox" style="width:15px;height:15px;" ${p.mainGoalDone?'checked':''}
             onchange="adminUpdatePlayerField('${escapeHtml(n)}','mainGoalDone',this.checked)">達成
@@ -173,7 +170,7 @@ function adminMemberEditHtml(){
     <div class="card">
       <h2><span class="tag">STEP 3</span>全員のデータを編集</h2>
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">
-        大目標・最高MR・シーズン開始MR（CVCランキング算出用）・達成フラグはここから直接編集できます。対戦履歴や個人目標リストなど詳しい編集は「詳細編集」からマイページを開いてください(管理者ログイン中はPIN確認なしで開けます)。
+        大目標・最高MR・達成フラグはここから直接編集できます。対戦履歴や個人目標リストなど詳しい編集は「詳細編集」からマイページを開いてください(管理者ログイン中はPIN確認なしで開けます)。
       </div>
       ${rowsHtml}
     </div>`;
@@ -189,18 +186,6 @@ async function adminUpdatePlayerField(name, field, value){
     p.mainGoalAchievedAt = null;
   }
   p[field] = value;
-  await saveData();
-  showToast('更新しました');
-}
-
-// シーズン開始MRの手動修正: 今ACT分として確定させ、自動更新スクリプトに上書きされないようにする
-// (空欄に戻した場合は自動記録の対象に戻す)
-async function adminUpdateSeasonStartMR(name, value){
-  const p = data.players[name];
-  if(!p) return;
-  const trimmed = String(value).trim();
-  p.seasonStartMR = trimmed;
-  p.seasonStartMRAct = trimmed ? CURRENT_ACT_NUMBER : null;
   await saveData();
   showToast('更新しました');
 }
@@ -259,264 +244,6 @@ async function adminDeleteAnnouncement(id){
   await saveData();
   renderAdmin();
   showToast('削除しました');
-}
-
-// ---- ⑤ Discordログ(sf6bot_testの日報)の取り込み ----
-// Botの管理者権限が無くても、DiscordChatExporter等でチャンネルをJSON形式に
-// エクスポートしてもらえれば、その中の「日報」「全メンバー一覧」「個人の総取得MR」
-// メッセージからCP残量・tier・色・MR増加量を読み取ってサイトに反映できるようにする。
-// ここでの取り込みはボタン操作による手動インポート(定期実行の自動化は行わない)。
-
-let discordImportPending = null; // {totals:{discordName:{...}}, daily:{date:{discordName:{...}}}, mapping:{discordName:playerName}}
-
-function adminDiscordImportHtml(){
-  let previewHtml = '';
-  if(discordImportPending){
-    const totals = discordImportPending.totals;
-    const daily = discordImportPending.daily;
-    if(!discordImportPending.mapping) discordImportPending.mapping = {};
-    const mapping = discordImportPending.mapping;
-
-    const dailyDates = Object.keys(daily).sort();
-    const allNames = new Set(Object.keys(totals));
-    dailyDates.forEach(d => Object.keys(daily[d]).forEach(n => allNames.add(n)));
-    const sortedNames = Array.from(allNames).sort((a,b)=>a.localeCompare(b,'ja'));
-    const memberOptions = Object.keys(data.players).sort((a,b)=>a.localeCompare(b,'ja'));
-
-    const rowsHtml = sortedNames.map(dn=>{
-      if(mapping[dn] === undefined) mapping[dn] = guessDiscordPlayerMatch(dn);
-      const info = totals[dn];
-      const metaText = info
-        ? `総取得MR ${info.totalMR||0} ・ CP ${info.cp||0}${(info.tier!==undefined && info.tier!=='') ? ' ・ tier'+info.tier : ''}`
-        : '日報のみ(総取得MR/CPの情報なし)';
-
-      const optionsHtml = `<option value="">— 取り込まない —</option>` + memberOptions.map(n=>
-        `<option value="${escapeHtml(n)}" ${mapping[dn]===n?'selected':''}>${escapeHtml(n)}</option>`
-      ).join('');
-
-      return `
-        <div class="match-edit-row" style="flex-wrap:wrap;">
-          <div style="flex:1;min-width:130px;">
-            <div style="font-weight:800;font-size:13px;">${escapeHtml(dn)}</div>
-            <div style="font-size:11px;color:var(--text-dim);">${metaText}</div>
-          </div>
-          <select onchange="adminDiscordSetMapping('${dn.replace(/'/g,"\\'")}', this.value)">${optionsHtml}</select>
-        </div>`;
-    }).join('');
-
-    previewHtml = `
-      <div style="font-size:12px;color:var(--text-dim);margin:10px 0;line-height:1.7;">
-        ${sortedNames.length}名分のDiscordニックネームが見つかりました（うちCP/tierの情報あり: ${Object.keys(totals).length}名、日報の日数: ${dailyDates.length}日 ${dailyDates.length?`[${dailyDates[0]}〜${dailyDates[dailyDates.length-1]}]`:''}）。<br>
-        Discord上のニックネームとサイト上のメンバー名が違う場合は、プルダウンで対応するメンバーに選び直してください。「取り込まない」を選んだ名前は無視されます。
-      </div>
-      <div style="max-height:360px;overflow-y:auto;">${rowsHtml}</div>
-      <button class="primary" style="margin-top:12px;" onclick="adminConfirmDiscordImport()">この内容でサイトに反映する</button>
-      <button class="ghost" style="margin-top:8px;" onclick="adminCancelDiscordImport()">キャンセル</button>
-    `;
-  }
-
-  return `
-    <div class="card">
-      <h2><span class="tag">STEP 5</span>Discordログの取り込み(CP・tier・日報)</h2>
-      <div style="font-size:12px;color:var(--text-dim);line-height:1.7;margin-bottom:10px;">
-        DiscordChatExporter等で「bot-メッセージ」チャンネルをJSON形式でエクスポートし、そのファイルをここにアップロードしてください。<br>
-        sf6bot_testが投稿する「日報」「全メンバー一覧」「個人の総取得MR」から、CP残量・tier(色)・MR増加量を読み取って、TOP画面・ランキング・メンバー詳細に反映します。<br>
-        Botの管理者権限は不要です。自動更新はできないため、エクスポートするたびにこのページから読み込み直してください。
-      </div>
-      <input type="file" id="admin-discord-file" accept=".json,application/json" onchange="adminDiscordFileSelected(event)">
-      <div id="admin-discord-preview">${previewHtml}</div>
-    </div>`;
-}
-
-function adminDiscordSetMapping(discordName, playerName){
-  if(!discordImportPending) return;
-  discordImportPending.mapping[discordName] = playerName;
-}
-
-function adminCancelDiscordImport(){
-  discordImportPending = null;
-  renderAdmin();
-}
-
-function adminDiscordFileSelected(event){
-  const file = event.target.files && event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    let json;
-    try{
-      json = JSON.parse(reader.result);
-    }catch(e){
-      showToast('JSONとして読み込めませんでした。DiscordChatExporterの「JSON」形式でエクスポートしたファイルを選んでください');
-      return;
-    }
-    const parsed = parseDiscordExportJson(json);
-    if(Object.keys(parsed.totals).length === 0 && Object.keys(parsed.daily).length === 0){
-      showToast('sf6bot_testのメッセージ(日報・総取得MR等)が見つかりませんでした。エクスポート範囲やチャンネルを確認してください');
-      return;
-    }
-    discordImportPending = {totals: parsed.totals, daily: parsed.daily, mapping: {}};
-    renderAdmin();
-    showToast('内容を確認し、必要であればメンバーとの対応を選び直してください');
-  };
-  reader.readAsText(file);
-}
-
-// DiscordChatExporterのJSONを解析し、
-// totals: {discordName: {totalMR, cp, tier, color, currentMRText}} (最新のものだけ)
-// daily:  {"YYYY-MM-DD": {discordName: {mrGain, cpGain}}}
-// を返す
-function parseDiscordExportJson(json){
-  const messages = Array.isArray(json.messages) ? json.messages : [];
-  const totals = {};
-  const daily = {};
-
-  function considerTotal(name, info, ts){
-    const existing = totals[name];
-    if(!existing || new Date(ts) > new Date(existing.__ts)){
-      totals[name] = Object.assign({}, info, {__ts: ts});
-    }
-  }
-
-  messages.forEach(m=>{
-    const embeds = m.embeds || [];
-    embeds.forEach(e=>{
-      const title = (e.title||'').trim();
-      let mm;
-
-      // 「日報 2026-09-04」: 1日ごとのMR/CP増加量一覧
-      if((mm = title.match(/^日報\s+(\d{4}-\d{2}-\d{2})$/))){
-        const date = mm[1];
-        const lines = (e.description||'').split('\n').map(s=>s.trim()).filter(Boolean);
-        lines.forEach(line=>{
-          const lm = line.match(/^(.+?):\s*MR\s*([+-]?\d+)\s*\/\s*CP\s*([+-]?\d+)$/);
-          if(lm){
-            const name = lm[1].trim();
-            if(!daily[date]) daily[date] = {};
-            daily[date][name] = {mrGain: parseInt(lm[2],10)||0, cpGain: parseInt(lm[3],10)||0};
-          }
-        });
-
-      // 「全メンバー MR増加量・CP一覧」: 全員分の総取得量スナップショット
-      } else if(title === '全メンバー MR増加量・CP一覧'){
-        const lines = (e.description||'').split('\n').map(s=>s.trim()).filter(Boolean);
-        lines.forEach(line=>{
-          const lm = line.match(/^\d+\.\s*(.+?)\s*—\s*MR\s*\+(\d+)\s*\(tier\s*(\d+)\s*(#[0-9A-Fa-f]{6})\)\s*\/\s*CP\s*(\d+)$/);
-          if(lm){
-            considerTotal(lm[1].trim(), {
-              totalMR: parseInt(lm[2],10)||0,
-              tier: parseInt(lm[3],10)||0,
-              color: lm[4],
-              cp: parseInt(lm[5],10)||0,
-              currentMRText: ''
-            }, m.timestamp);
-          }
-        });
-
-      // 「〇〇 の総取得MR」: 個人が照会した際に投稿される詳細カード
-      } else if((mm = title.match(/^(.+?)\s*の総取得MR$/))){
-        const name = mm[1].trim();
-        const fields = e.fields || [];
-        const getField = fname => { const f = fields.find(f=>f.name===fname); return f ? (f.value||'') : ''; };
-        const colorStr = getField('色');
-        const cm = colorStr.match(/tier\s*(\d+)\s*\/\s*\d+\s*(#[0-9A-Fa-f]{6})/);
-        considerTotal(name, {
-          totalMR: parseInt(getField('総取得量'),10)||0,
-          cp: parseInt(getField('CP残量'),10)||0,
-          tier: cm ? parseInt(cm[1],10) : '',
-          color: cm ? cm[2] : '',
-          currentMRText: getField('現在のMR') || ''
-        }, m.timestamp);
-      }
-    });
-  });
-
-  // 内部用の__tsはサイトのデータには不要なので取り除く
-  Object.keys(totals).forEach(k => { delete totals[k].__ts; });
-
-  return {totals, daily};
-}
-
-// Discordのニックネーム(絵文字・記号付き)からサイト上のメンバー名を推測する
-function normalizeDiscordName(s){
-  return String(s||'')
-    .normalize('NFKC')
-    .replace(/\p{Extended_Pictographic}/gu, '')
-    .replace(/[\uFE0F\u200D]/g, '')
-    .replace(/[@#・。.\-_ｰー\s]/g, '')
-    .toLowerCase();
-}
-
-function guessDiscordPlayerMatch(discordName){
-  // すでに同じdiscordNameを取り込み済みのメンバーがいれば最優先でそれを使う
-  const exact = Object.keys(data.players).find(n => data.players[n].discordName === discordName);
-  if(exact) return exact;
-
-  const dn = normalizeDiscordName(discordName);
-  if(!dn) return '';
-
-  let best = '';
-  let bestScore = -1;
-  Object.keys(data.players).forEach(n=>{
-    const pn = normalizeDiscordName(n);
-    if(!pn) return;
-    let score = -1;
-    if(pn === dn) score = 100;
-    else if(dn.startsWith(pn) || pn.startsWith(dn)) score = 80 - Math.abs(dn.length - pn.length);
-    else if(dn.includes(pn) || pn.includes(dn)) score = 60 - Math.abs(dn.length - pn.length);
-    if(score > bestScore){ bestScore = score; best = n; }
-  });
-  return bestScore >= 50 ? best : '';
-}
-
-async function adminConfirmDiscordImport(){
-  if(!discordImportPending) return;
-  const {totals, daily, mapping} = discordImportPending;
-  const nowIso = new Date().toISOString();
-  let updatedCount = 0;
-
-  Object.keys(totals).forEach(dn=>{
-    const playerName = mapping[dn];
-    if(!playerName || !data.players[playerName]) return;
-    const info = totals[dn];
-    const p = data.players[playerName];
-    p.discordName = dn;
-    p.discordTotalMR = String(info.totalMR ?? '');
-    p.discordCP = String(info.cp ?? '');
-    p.discordTier = (info.tier !== undefined && info.tier !== '') ? String(info.tier) : '';
-    p.discordColor = info.color || '';
-    if(info.currentMRText) p.discordCurrentMRText = info.currentMRText;
-    p.discordUpdatedAt = nowIso;
-    updatedCount++;
-  });
-
-  // 個人の総取得MR一覧に出てこなかった(=日報にしか名前が無い)メンバーも、
-  // マッピングだけ選ばれていればdiscordNameだけ保存しておき、次回以降の自動対応に使う
-  Object.keys(mapping).forEach(dn=>{
-    if(totals[dn]) return;
-    const playerName = mapping[dn];
-    if(!playerName || !data.players[playerName]) return;
-    if(!data.players[playerName].discordName) data.players[playerName].discordName = dn;
-  });
-
-  if(!data.discordDailyReports) data.discordDailyReports = {};
-  let dailyDaysCount = 0;
-  Object.keys(daily).forEach(date=>{
-    let addedThisDate = false;
-    Object.keys(daily[date]).forEach(dn=>{
-      const playerName = mapping[dn] || Object.keys(data.players).find(n=>data.players[n].discordName===dn);
-      if(!playerName || !data.players[playerName]) return;
-      if(!data.discordDailyReports[date]) data.discordDailyReports[date] = {};
-      data.discordDailyReports[date][playerName] = daily[date][dn];
-      addedThisDate = true;
-    });
-    if(addedThisDate) dailyDaysCount++;
-  });
-
-  await saveData();
-  discordImportPending = null;
-  renderAdmin();
-  showToast(`${updatedCount}人分のCP/tierデータと、${dailyDaysCount}日分の日報を反映しました`);
 }
 
 (async function(){

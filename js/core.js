@@ -1,9 +1,5 @@
 const database = firebase.database();
 
-// scripts/update-mr.mjs の CURRENT_ACT_NUMBER と必ず同じ値にしておくこと
-// (シーズン開始MRを「今ACTで自動記録済みかどうか」判定するために使う)
-const CURRENT_ACT_NUMBER = 13;
-
 const STORAGE_KEY = 'classical_worker_2026_data';
 const SEED_PLAYERS = ["にゃんたかたー","プライドチキン","キタロー","ウーロン茶","れんたん","うーろん","ちゃぶ台","シャミセン","なかじま","ゆび","kaz_bwc","こなつ","エインセル河本","せば","しみちん","けんじろう","SAJ","AKAZUKIN","田井中 良樹","こうへー","でみ。","甘えっさん","ラスペーシア","Anne","ののの","shinsei","ココノツ","KFC-11","かーず","横須賀ふたば","サクリ"];
 
@@ -59,13 +55,12 @@ let tabStates = {
 function defaultData(){
   const players = {};
   SEED_PLAYERS.forEach(n => players[n] = {
-    matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', seasonStartMR:'', seasonStartMRAct:null, actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
+    matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
     userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
-    twitchLogin:'', pin:'',
-    discordName:'', discordCP:'', discordTotalMR:'', discordTier:'', discordColor:'', discordCurrentMRText:'', discordUpdatedAt:''
+    twitchLogin:'', pin:''
   });
-  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[], discordDailyReports:{}};
+  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[]};
 }
 
 // データ補正用の共通関数
@@ -107,8 +102,6 @@ function normalizeData(data){
       // その他のフィールドもデフォルト値で補完
       if (p.maxMR === undefined) p.maxMR = '';
       if (p.currentMR === undefined) p.currentMR = '';
-      if (p.seasonStartMR === undefined) p.seasonStartMR = '';
-      if (p.seasonStartMRAct === undefined) p.seasonStartMRAct = null;
       if (p.actBattleCount === undefined) p.actBattleCount = '';
       if (p.currentActNumber === undefined) p.currentActNumber = '';
       if (p.mainGoal === undefined) p.mainGoal = '';
@@ -122,15 +115,6 @@ function normalizeData(data){
       if (p.isLive === undefined) p.isLive = false;
       if (p.twitchLogin === undefined) p.twitchLogin = '';
       if (p.pin === undefined) p.pin = '';
-
-      // Discord bot(sf6bot_test)の日報エクスポートから取り込むフィールド
-      if (p.discordName === undefined) p.discordName = '';
-      if (p.discordCP === undefined) p.discordCP = '';
-      if (p.discordTotalMR === undefined) p.discordTotalMR = '';
-      if (p.discordTier === undefined) p.discordTier = '';
-      if (p.discordColor === undefined) p.discordColor = '';
-      if (p.discordCurrentMRText === undefined) p.discordCurrentMRText = '';
-      if (p.discordUpdatedAt === undefined) p.discordUpdatedAt = '';
       
       // matches内の各エントリも補正
       p.matches.forEach(m => {
@@ -140,11 +124,6 @@ function normalizeData(data){
         if (m.result === undefined) m.result = 'win';
         if (m.opponent === undefined) m.opponent = '';
         if (m.date === undefined) m.date = new Date().toISOString();
-        // CVC（Community Victory Contribution）計算用フィールド
-        if (m.character === undefined) m.character = '';
-        if (m.external === undefined) m.external = true;
-        if (m.opponentMR === undefined) m.opponentMR = '';
-        if (m.mrSource === undefined) m.mrSource = '';
       });
     });
   }
@@ -180,12 +159,6 @@ function normalizeData(data){
   // announcements(お知らせ)の補正
   if (!Array.isArray(data.announcements)) {
     data.announcements = [];
-  }
-
-  // discordDailyReports(Discord日報の取り込み結果)の補正
-  // { "YYYY-MM-DD": { "サイト上のプレイヤー名": {mrGain, cpGain} } }
-  if (!data.discordDailyReports || typeof data.discordDailyReports !== 'object') {
-    data.discordDailyReports = {};
   }
   
   // 古いプロパティを削除
@@ -381,121 +354,6 @@ function computeStats(p){
   const doneCount = goals.filter(g=>g.done).length;
   const goalAchievement = goals.length>0 ? (doneCount/goals.length*100) : null;
   return {total, wins, winRate, goalAchievement, goalDone: doneCount, goalTotal: goals.length};
-}
-
-// ===== CVC（Community Victory Contribution）計算 =====
-// 対戦結果に記録された「相手MR」「使用キャラ」「対外試合フラグ」「シーズン開始MR」を元に算出する。
-// サイトに登録されているプレイヤー = 仕様書の「登録済み」、data.playersに存在しない対戦相手 = 「未登録」として扱う。
-
-function parseScoreParts(score){
-  if(!score) return {me:0, opp:0};
-  const parts = String(score).split('-');
-  return {me: parseInt(parts[0],10)||0, opp: parseInt(parts[1],10)||0};
-}
-
-// コミュニティ全体MR平均（現在MRが登録されているプレイヤーのみ対象）
-function getCommunityAvgMR(){
-  const mrs = Object.values(data.players)
-    .map(p => parseInt(p.currentMR,10))
-    .filter(mr => !isNaN(mr) && mr>0);
-  if(mrs.length===0) return 0;
-  return mrs.reduce((a,b)=>a+b,0)/mrs.length;
-}
-
-// 1人分のCVC（補正前）を算出する。データ不足（現在MR・シーズン開始MR未登録、対外試合の記録なし）の場合はnull
-function computeCVCRaw(name, communityAvgMR){
-  const p = data.players[name];
-  if(!p) return null;
-  const currentMR = parseInt(p.currentMR,10);
-  const seasonStartMR = parseInt(p.seasonStartMR,10);
-  if(isNaN(currentMR) || currentMR<=0 || isNaN(seasonStartMR)) return null;
-
-  const matches = (p.matches||[]).filter(m => m.external !== false && m.score);
-  if(matches.length===0) return null;
-
-  let acquiredExp = 0, lostExp = 0, totalSets = 0, oppMRSum = 0, oppMRCount = 0;
-  const charCounts = {};
-
-  matches.forEach(m=>{
-    const {me, opp} = parseScoreParts(m.score);
-    const setsTotal = me+opp;
-    if(setsTotal<=0) return;
-
-    let oppMR = parseInt(m.opponentMR,10);
-    if(isNaN(oppMR) || oppMR<=0){
-      const oppPlayer = data.players[m.opponent];
-      if(oppPlayer && oppPlayer.currentMR){
-        oppMR = parseInt(oppPlayer.currentMR,10);
-      }
-    }
-    if(isNaN(oppMR) || oppMR<=0) oppMR = communityAvgMR;
-
-    acquiredExp += me * oppMR / currentMR;
-    lostExp += opp * oppMR / currentMR;
-    totalSets += setsTotal;
-    oppMRSum += oppMR;
-    oppMRCount++;
-
-    if(m.character){
-      charCounts[m.character] = (charCounts[m.character]||0) + 1;
-    }
-  });
-
-  if(totalSets===0) return null;
-
-  // ① 対戦経験値
-  const battleExp = (acquiredExp + lostExp*0.2) * (totalSets/(totalSets+10));
-
-  // ② 安定感貢献度
-  const matchCount = matches.length;
-  const mrGain = currentMR - seasonStartMR;
-  const stability = mrGain * (matchCount/(matchCount+5));
-
-  // ③ 多様性貢献度（使用キャラが記録されている試合のみ対象）
-  const charEntries = Object.entries(charCounts);
-  let diversity = 0;
-  let activeCharCount = 0;
-  let nonMainRate = 0;
-  if(charEntries.length>0){
-    const totalCharMatches = charEntries.reduce((s,[,c])=>s+c,0);
-    charEntries.sort((a,b)=>b[1]-a[1]);
-    const mainCount = charEntries[0][1];
-    nonMainRate = ((totalCharMatches-mainCount)/totalCharMatches)*100;
-    activeCharCount = charEntries.length;
-    diversity = (activeCharCount-1) * (nonMainRate/100) * 10;
-  }
-
-  // ④ ポジション補正
-  const avgOppMR = oppMRCount>0 ? oppMRSum/oppMRCount : communityAvgMR;
-  const positionAdj = communityAvgMR>0 ? avgOppMR/communityAvgMR : 1;
-
-  const preCVC = ((battleExp*10) + stability + diversity) * positionAdj;
-
-  return {
-    name, currentMR, seasonStartMR, matchCount, totalSets,
-    battleExp, acquiredExp, lostExp,
-    stability, mrGain,
-    diversity, activeCharCount, nonMainRate,
-    avgOppMR, positionAdj, preCVC
-  };
-}
-
-// 全プレイヤーのCVC（最終）を算出し、降順に並べて返す
-function computeCVCRanking(){
-  const communityAvgMR = getCommunityAvgMR();
-  const raws = Object.keys(data.players)
-    .map(n => computeCVCRaw(n, communityAvgMR))
-    .filter(Boolean);
-  if(raws.length===0) return [];
-  const baseline = raws.reduce((s,r)=>s+r.preCVC,0) / raws.length;
-  raws.forEach(r=>{ r.baseline = baseline; r.cvc = r.preCVC - baseline; });
-  raws.sort((a,b)=>b.cvc-a.cvc);
-  return raws;
-}
-
-// 1人分のCVC結果だけを取得する（メンバー詳細ページ等から利用）
-function getCVCForPlayer(name){
-  return computeCVCRanking().find(r=>r.name===name) || null;
 }
 
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -828,38 +686,6 @@ function memberMetaChipsHtml(p){
   const platformRow = platformChipsHtml(p);
   if(!formatChip && !deviceRow && !platformRow) return '';
   return `<div class="member-meta-row">${formatChip}${deviceRow}${platformRow}</div>`;
-}
-
-// ===== Discord日報(sf6bot_test)取り込みデータ関連のヘルパー =====
-// 管理者ページからエクスポートJSONを取り込むと、各プレイヤーに
-// discordCP / discordTotalMR / discordTier / discordColor 等がセットされる。
-// 詳しい取り込みロジックは admin.js 側にある。
-
-// Discord CP(総取得量ベースの通貨)ランキングを、CP降順で返す。
-// [{name, cp, totalMR, tier, color}, ...]
-// Discord CPランキングを、日々の日報(discordDailyReports)のCP増減を積み上げて算出する。
-// 総取得MR/tierのスナップショットには依存せず、取り込んだ日報の合計だけを見るため、
-// 同じ日付を読み込み直しても二重計上されない(日付ごとに上書きされるため)。
-// [{name, cp, mrGain}, ...] (cp降順)
-function discordCpRankingList(){
-  const totals = {}; // name -> {cp, mrGain}
-  const reports = data.discordDailyReports || {};
-  Object.keys(reports).forEach(date=>{
-    const dayData = reports[date] || {};
-    Object.keys(dayData).forEach(name=>{
-      if(!data.players[name]) return;
-      if(!totals[name]) totals[name] = {cp:0, mrGain:0};
-      totals[name].cp += Number(dayData[name].cpGain)||0;
-      totals[name].mrGain += Number(dayData[name].mrGain)||0;
-    });
-  });
-  const arr = Object.keys(totals).map(name=>({
-    name,
-    cp: totals[name].cp,
-    mrGain: totals[name].mrGain
-  }));
-  arr.sort((a,b)=>b.cp - a.cp);
-  return arr;
 }
 
 
