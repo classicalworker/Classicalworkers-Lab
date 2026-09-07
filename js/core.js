@@ -135,6 +135,8 @@ function normalizeData(data){
       if (ev.attendanceRequired === undefined) ev.attendanceRequired = true;
       if (ev.attendanceDeadline === undefined) ev.attendanceDeadline = null;
       if (!ev.attendance) ev.attendance = {};
+      // 管理者が入力した対戦結果(出席メンバー同士に限定)を予定ごとに保持する
+      if (!Array.isArray(ev.results)) ev.results = [];
     });
   } else {
     data.events = [];

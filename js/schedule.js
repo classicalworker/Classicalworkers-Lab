@@ -216,12 +216,19 @@ function eventCardHtml(ev, onlyDay){
           </div>`;
       // 管理者モードでログイン中は、登録済みメンバーの出欠を代理で自由に編集できるようにする
       const adminEditHtml = isAdminUnlocked() ? adminAttendEditHtml(ev.id, day, dayAtt) : '';
+      // 管理者モードでログイン中は、この日「出席」登録したメンバー同士の対戦結果を入力できるようにする
+      const dayResultCount = (ev.results||[]).filter(r=>r.day===day).length;
+      const resultBtnHtml = isAdminUnlocked() ? `
+        <div style="margin-top:10px">
+          <button class="btn-small" onclick="openResultModal('${ev.id}','${day}')">🏆 結果を入力${dayResultCount ? `(${dayResultCount}件記録済み)` : ''}</button>
+        </div>` : '';
       return `
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--panel-border)">
           ${dates.length>1 ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--gold);margin-bottom:6px">${formatDayShort(day)}</div>` : ''}
           ${buttonsHtml}
           ${breakdownHtml}
           ${adminEditHtml}
+          ${resultBtnHtml}
         </div>`;
     }).join('');
   }
@@ -413,6 +420,206 @@ function adminDeleteAttendance(eventId, day, name){
       openDayModal(day);
     }
     showToast('出欠回答を削除しました');
+  });
+}
+
+// ===== 管理者権限:予定に紐づく対戦結果の入力 =====
+// その日「出席」登録したメンバー同士に限定して、対戦結果をその場で記録できるようにする。
+// 記録した結果は各メンバーの対戦履歴(matches)にも反映され、ランキング・戦績に自動反映される。
+let resultModalEventId = null;
+let resultModalDay = null;
+let resultModalPlayerA = '';
+let resultModalPlayerB = '';
+let resultModalScoreA = 0;
+let resultModalScoreB = 0;
+let resultModalWinner = '';
+
+// その予定・その日に「出席」登録しているメンバー一覧を返す
+function getEventDayAttendees(eventId, day){
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev || !ev.attendance || !ev.attendance[day]) return [];
+  return Object.entries(ev.attendance[day])
+    .filter(([,st])=>st==='yes')
+    .map(([n])=>n)
+    .sort((a,b)=>a.localeCompare(b,'ja'));
+}
+
+function openResultModal(eventId, day){
+  requireAdminPin(()=>{
+    resultModalEventId = eventId;
+    resultModalDay = day;
+    resultModalPlayerA = '';
+    resultModalPlayerB = '';
+    resultModalScoreA = 0;
+    resultModalScoreB = 0;
+    resultModalWinner = '';
+    closeModal();
+    renderResultModal();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
+}
+
+function resultModalSetPlayerA(v){ resultModalPlayerA = v; if(resultModalPlayerB===v) resultModalPlayerB=''; renderResultModal(); }
+function resultModalSetPlayerB(v){ resultModalPlayerB = v; renderResultModal(); }
+function resultModalSetScoreA(v){ resultModalScoreA = v; renderResultModal(); }
+function resultModalSetScoreB(v){ resultModalScoreB = v; renderResultModal(); }
+function resultModalSetWinner(v){ resultModalWinner = v; renderResultModal(); }
+
+function renderResultModal(){
+  const ev = data.events.find(e=>e.id===resultModalEventId);
+  if(!ev){ closeModal(); return; }
+  const day = resultModalDay;
+  const badge = formatDateBadge(day);
+  const attendees = getEventDayAttendees(resultModalEventId, day);
+  const existingHtml = eventResultsListHtml(ev, day);
+
+  if(attendees.length < 2){
+    document.getElementById('modal-box').innerHTML = `
+      <div class="modal-head">
+        <h2>🏆 結果を入力</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日</div>
+      <div class="empty">この日「出席」登録しているメンバーが2名以上になると、結果を入力できるようになります。</div>
+      ${existingHtml}
+    `;
+    return;
+  }
+
+  const optsA = attendees.map(n=>`<option value="${escapeHtml(n)}" ${resultModalPlayerA===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
+  const optsB = attendees.filter(n=>n!==resultModalPlayerA).map(n=>`<option value="${escapeHtml(n)}" ${resultModalPlayerB===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
+  const scoreAHtml = Array.from({length:11}, (_,i)=>`<button class="score-btn ${i===resultModalScoreA?'active':''}" onclick="resultModalSetScoreA(${i})">${i}</button>`).join('');
+  const scoreBHtml = Array.from({length:11}, (_,i)=>`<button class="score-btn ${i===resultModalScoreB?'active':''}" onclick="resultModalSetScoreB(${i})">${i}</button>`).join('');
+
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <h2>🏆 結果を入力</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日 に「出席」登録したメンバーのみ選択できます。</div>
+
+    <label>プレイヤーA<span class="req-mark">*</span></label>
+    <select id="result-player-a" onchange="resultModalSetPlayerA(this.value)">
+      <option value="">選択してください</option>
+      ${optsA}
+    </select>
+
+    <label style="margin-top:10px">プレイヤーB<span class="req-mark">*</span></label>
+    <select id="result-player-b" onchange="resultModalSetPlayerB(this.value)">
+      <option value="">選択してください</option>
+      ${optsB}
+    </select>
+
+    <label style="margin-top:12px">スコア(A − B)</label>
+    <div class="score-vs">A: ${resultModalPlayerA ? escapeHtml(resultModalPlayerA) : '–'}</div>
+    <div class="score-buttons">${scoreAHtml}</div>
+    <div class="score-vs">− 対 −</div>
+    <div class="score-buttons">${scoreBHtml}</div>
+    <div class="score-vs">B: ${resultModalPlayerB ? escapeHtml(resultModalPlayerB) : '–'}</div>
+
+    <label style="margin-top:12px">勝者</label>
+    <div class="choice-group">
+      <div class="choice win ${resultModalWinner==='A'?'selected':''}" onclick="resultModalSetWinner('A')">Aの勝ち</div>
+      <div class="choice loss ${resultModalWinner==='B'?'selected':''}" onclick="resultModalSetWinner('B')">Bの勝ち</div>
+    </div>
+
+    <button class="primary" onclick="submitResultModal()">記録する</button>
+    ${existingHtml}
+  `;
+}
+
+async function submitResultModal(){
+  const ev = data.events.find(e=>e.id===resultModalEventId);
+  if(!ev) return;
+  const day = resultModalDay;
+  const attendees = getEventDayAttendees(resultModalEventId, day);
+  const a = resultModalPlayerA, b = resultModalPlayerB;
+  if(!a || !b){ showToast('プレイヤーを2名選択してください'); return; }
+  if(a === b){ showToast('同じプレイヤーは選択できません'); return; }
+  // 出席しているメンバーのみ結果を入力できるようにする(不正な選択を二重にガード)
+  if(!attendees.includes(a) || !attendees.includes(b)){ showToast('この日「出席」登録しているメンバーのみ選択できます'); return; }
+  if(!resultModalWinner){ showToast('勝者を選択してください'); return; }
+  if(!data.players[a] || !data.players[b]){ showToast('プレイヤーデータが見つかりません'); return; }
+
+  const matchDate = new Date().toISOString();
+  const resultId = genId();
+  const resultA = resultModalWinner === 'A' ? 'win' : 'loss';
+  const resultB = resultModalWinner === 'A' ? 'loss' : 'win';
+
+  if(!data.players[a].notifications) data.players[a].notifications = [];
+  if(!data.players[b].notifications) data.players[b].notifications = [];
+
+  data.players[a].matches.push({
+    opponent: b, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`,
+    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId
+  });
+  data.players[b].matches.push({
+    opponent: a, result: resultB, score: `${resultModalScoreB}-${resultModalScoreA}`,
+    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId
+  });
+  data.players[a].notifications.push({opponent: b, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`, eventName: ev.title, date: matchDate});
+  data.players[b].notifications.push({opponent: a, result: resultB, score: `${resultModalScoreB}-${resultModalScoreA}`, eventName: ev.title, date: matchDate});
+
+  if(!Array.isArray(ev.results)) ev.results = [];
+  ev.results.push({id: resultId, day, playerA: a, playerB: b, scoreA: resultModalScoreA, scoreB: resultModalScoreB, winner: resultModalWinner, at: matchDate});
+
+  resultModalPlayerA = '';
+  resultModalPlayerB = '';
+  resultModalScoreA = 0;
+  resultModalScoreB = 0;
+  resultModalWinner = '';
+
+  await saveData();
+  renderSchedule();
+  renderResultModal();
+  showToast('結果を記録しました');
+}
+
+// 記録済みの結果を一覧表示(その日の分)。管理者は個別に削除できる
+function eventResultsListHtml(ev, day){
+  const list = (ev.results||[]).filter(r=>r.day===day).slice().sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+  if(list.length===0) return '';
+  const rowsHtml = list.map(r=>`
+    <div class="history-item">
+      <div class="history-main">
+        <div class="top"><span class="names">${escapeHtml(r.playerA)} vs ${escapeHtml(r.playerB)}</span></div>
+        <div class="score-display"><span class="score-me">${r.scoreA}</span><span class="vs">vs</span><span class="score-opp">${r.scoreB}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <span class="pill win">${escapeHtml(r.winner==='A'?r.playerA:r.playerB)} WIN</span>
+        <button class="ghost" onclick="adminDeleteEventResult('${ev.id}','${r.id}')" style="font-size:10px;padding:2px 6px;">削除</button>
+      </div>
+    </div>`).join('');
+  return `
+    <div class="notice-section-title" style="margin-top:16px">記録済みの結果</div>
+    ${rowsHtml}`;
+}
+
+// 記録済みの結果を削除する(両プレイヤーの対戦履歴・通知からも取り消す)
+function adminDeleteEventResult(eventId, resultId){
+  requireAdminPin(async ()=>{
+    const ev = data.events.find(e=>e.id===eventId);
+    if(!ev || !Array.isArray(ev.results)) return;
+    const result = ev.results.find(r=>r.id===resultId);
+    if(!result) return;
+    if(!await confirmDialog(`${result.playerA}さん vs ${result.playerB}さんの結果を削除しますか?`)) return;
+
+    [result.playerA, result.playerB].forEach(name=>{
+      const p = data.players[name];
+      if(!p) return;
+      if(Array.isArray(p.matches)){
+        p.matches = p.matches.filter(m=>m.eventResultId !== resultId);
+      }
+      if(Array.isArray(p.notifications)){
+        p.notifications = p.notifications.filter(n=>!(n.date===result.at && (n.opponent===result.playerA || n.opponent===result.playerB)));
+      }
+    });
+    ev.results = ev.results.filter(r=>r.id!==resultId);
+
+    await saveData();
+    renderSchedule();
+    renderResultModal();
+    showToast('結果を削除しました');
   });
 }
 
@@ -613,7 +820,7 @@ async function submitEventModal(){
   if(dates.length===0){ flagSectionError('event-date-section'); missing.push('開催日'); }
   if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
   const newEventId = genId();
-  data.events.push({id: newEventId, title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}});
+  data.events.push({id: newEventId, title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}, results:[]});
   {
     // 日程・締切・出欠確認の有無を1行にまとめて表示する(詳細入力があればタイトル横に明示)
     const detailTag = description ? '(詳細あり)' : '';
