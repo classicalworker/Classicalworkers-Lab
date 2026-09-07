@@ -424,12 +424,15 @@ function adminDeleteAttendance(eventId, day, name){
 }
 
 // ===== 管理者権限:予定に紐づく対戦結果の入力 =====
-// その日「出席」登録したメンバー同士に限定して、対戦結果をその場で記録できるようにする。
+// その日「出席」登録したメンバー(プレイヤーA)を起点に、対戦結果をその場で記録できるようにする。
+// 対戦相手は自由入力(対抗戦の外部プレイヤーなど)にも対応し、登録メンバーであれば
+// そのメンバーに紐づくMRを自動反映、未登録なら手入力でMRを記録できる。
 // 記録した結果は各メンバーの対戦履歴(matches)にも反映され、ランキング・戦績に自動反映される。
 let resultModalEventId = null;
 let resultModalDay = null;
 let resultModalPlayerA = '';
-let resultModalPlayerB = '';
+let resultModalOpponentName = '';
+let resultModalOpponentMR = '';
 let resultModalScoreA = 0;
 let resultModalScoreB = 0;
 let resultModalWinner = '';
@@ -444,12 +447,20 @@ function getEventDayAttendees(eventId, day){
     .sort((a,b)=>a.localeCompare(b,'ja'));
 }
 
+// 名前が登録メンバーの場合、そのメンバーに紐づくMR(現在のMR、なければ最大MR)を返す
+function registeredPlayerMR(name){
+  const p = data.players[name];
+  if(!p) return null;
+  return p.currentMR || p.maxMR || '';
+}
+
 function openResultModal(eventId, day){
   requireAdminPin(()=>{
     resultModalEventId = eventId;
     resultModalDay = day;
     resultModalPlayerA = '';
-    resultModalPlayerB = '';
+    resultModalOpponentName = '';
+    resultModalOpponentMR = '';
     resultModalScoreA = 0;
     resultModalScoreB = 0;
     resultModalWinner = '';
@@ -459,11 +470,29 @@ function openResultModal(eventId, day){
   });
 }
 
-function resultModalSetPlayerA(v){ resultModalPlayerA = v; if(resultModalPlayerB===v) resultModalPlayerB=''; renderResultModal(); }
-function resultModalSetPlayerB(v){ resultModalPlayerB = v; renderResultModal(); }
+function resultModalSetPlayerA(v){ resultModalPlayerA = v; renderResultModal(); }
 function resultModalSetScoreA(v){ resultModalScoreA = v; renderResultModal(); }
 function resultModalSetScoreB(v){ resultModalScoreB = v; renderResultModal(); }
 function resultModalSetWinner(v){ resultModalWinner = v; renderResultModal(); }
+
+// 対戦相手欄の入力ごとに、登録メンバーかどうかに応じてMR欄の表示だけを差し替える(モーダル全体は再描画しない)
+function resultModalOpponentInput(v){
+  resultModalOpponentName = v;
+  const box = document.getElementById('result-opponent-mr-box');
+  if(box) box.innerHTML = resultModalOpponentMRBoxHtml();
+}
+
+function resultModalOpponentMRBoxHtml(){
+  const name = resultModalOpponentName.trim();
+  const mr = name ? registeredPlayerMR(name) : null;
+  if(name && mr !== null){
+    return `<div class="attend-toggle-hint">🔗 登録メンバーのMRを自動反映します${mr ? `(現在のMR: ${escapeHtml(mr)})` : '(MR未登録)'}</div>`;
+  }
+  return `
+    <label>相手のMR(任意)</label>
+    <input type="text" id="result-opponent-mr-input" value="${escapeHtml(resultModalOpponentMR)}" placeholder="例:1650" oninput="resultModalOpponentMR=this.value">
+    <div class="attend-toggle-hint">未登録の相手(対抗戦の外部プレイヤーなど)の場合は、わかる範囲でMRを入力してください。</div>`;
+}
 
 function renderResultModal(){
   const ev = data.events.find(e=>e.id===resultModalEventId);
@@ -473,21 +502,22 @@ function renderResultModal(){
   const attendees = getEventDayAttendees(resultModalEventId, day);
   const existingHtml = eventResultsListHtml(ev, day);
 
-  if(attendees.length < 2){
+  if(attendees.length === 0){
     document.getElementById('modal-box').innerHTML = `
       <div class="modal-head">
         <h2>🏆 結果を入力</h2>
         <button class="modal-close" onclick="closeModal()">×</button>
       </div>
       <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日</div>
-      <div class="empty">この日「出席」登録しているメンバーが2名以上になると、結果を入力できるようになります。</div>
+      <div class="empty">この日「出席」登録しているメンバーがいないと、結果を入力できません。</div>
       ${existingHtml}
     `;
     return;
   }
 
   const optsA = attendees.map(n=>`<option value="${escapeHtml(n)}" ${resultModalPlayerA===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
-  const optsB = attendees.filter(n=>n!==resultModalPlayerA).map(n=>`<option value="${escapeHtml(n)}" ${resultModalPlayerB===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
+  const otherPlayers = Object.keys(data.players).filter(n=>n!==resultModalPlayerA).sort((a,b)=>a.localeCompare(b,'ja'));
+  const opponentOptions = otherPlayers.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
   const scoreAHtml = Array.from({length:11}, (_,i)=>`<button class="score-btn ${i===resultModalScoreA?'active':''}" onclick="resultModalSetScoreA(${i})">${i}</button>`).join('');
   const scoreBHtml = Array.from({length:11}, (_,i)=>`<button class="score-btn ${i===resultModalScoreB?'active':''}" onclick="resultModalSetScoreB(${i})">${i}</button>`).join('');
 
@@ -496,31 +526,36 @@ function renderResultModal(){
       <h2>🏆 結果を入力</h2>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
-    <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日 に「出席」登録したメンバーのみ選択できます。</div>
+    <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日 に「出席」登録したメンバーのみプレイヤーAに選択できます。</div>
 
-    <label>プレイヤーA<span class="req-mark">*</span></label>
+    <label>プレイヤーA(出席メンバー)<span class="req-mark">*</span></label>
     <select id="result-player-a" onchange="resultModalSetPlayerA(this.value)">
       <option value="">選択してください</option>
       ${optsA}
     </select>
 
-    <label style="margin-top:10px">プレイヤーB<span class="req-mark">*</span></label>
-    <select id="result-player-b" onchange="resultModalSetPlayerB(this.value)">
-      <option value="">選択してください</option>
-      ${optsB}
-    </select>
+    <label style="margin-top:10px">対戦相手(自由入力または選択)<span class="req-mark">*</span></label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="text" id="result-opponent-input" placeholder="対戦相手の名前を入力(対抗戦の相手もOK)" style="flex:1;" value="${escapeHtml(resultModalOpponentName)}" oninput="resultModalOpponentInput(this.value)">
+      <span style="color:var(--text-dim);font-size:11px;">または</span>
+      <select id="result-opponent-select" style="flex:1;" onchange="document.getElementById('result-opponent-input').value=this.value; resultModalOpponentInput(this.value);">
+        <option value="">選択する</option>
+        ${opponentOptions}
+      </select>
+    </div>
+    <div id="result-opponent-mr-box">${resultModalOpponentMRBoxHtml()}</div>
 
-    <label style="margin-top:12px">スコア(A − B)</label>
+    <label style="margin-top:12px">スコア(A − 相手)</label>
     <div class="score-vs">A: ${resultModalPlayerA ? escapeHtml(resultModalPlayerA) : '–'}</div>
     <div class="score-buttons">${scoreAHtml}</div>
     <div class="score-vs">− 対 −</div>
     <div class="score-buttons">${scoreBHtml}</div>
-    <div class="score-vs">B: ${resultModalPlayerB ? escapeHtml(resultModalPlayerB) : '–'}</div>
+    <div class="score-vs">相手: ${resultModalOpponentName ? escapeHtml(resultModalOpponentName) : '–'}</div>
 
     <label style="margin-top:12px">勝者</label>
     <div class="choice-group">
       <div class="choice win ${resultModalWinner==='A'?'selected':''}" onclick="resultModalSetWinner('A')">Aの勝ち</div>
-      <div class="choice loss ${resultModalWinner==='B'?'selected':''}" onclick="resultModalSetWinner('B')">Bの勝ち</div>
+      <div class="choice loss ${resultModalWinner==='B'?'selected':''}" onclick="resultModalSetWinner('B')">相手の勝ち</div>
     </div>
 
     <button class="primary" onclick="submitResultModal()">記録する</button>
@@ -533,38 +568,56 @@ async function submitResultModal(){
   if(!ev) return;
   const day = resultModalDay;
   const attendees = getEventDayAttendees(resultModalEventId, day);
-  const a = resultModalPlayerA, b = resultModalPlayerB;
-  if(!a || !b){ showToast('プレイヤーを2名選択してください'); return; }
-  if(a === b){ showToast('同じプレイヤーは選択できません'); return; }
-  // 出席しているメンバーのみ結果を入力できるようにする(不正な選択を二重にガード)
-  if(!attendees.includes(a) || !attendees.includes(b)){ showToast('この日「出席」登録しているメンバーのみ選択できます'); return; }
+  const a = resultModalPlayerA;
+  const opponentInput = document.getElementById('result-opponent-input');
+  const opponent = (opponentInput ? opponentInput.value : resultModalOpponentName).trim();
+  if(!a){ showToast('プレイヤーAを選択してください'); return; }
+  if(!opponent){ showToast('対戦相手を入力または選択してください'); return; }
+  if(a === opponent){ showToast('同じ名前は選択できません'); return; }
+  // プレイヤーA(結果の記録対象)は、出席しているメンバーのみに限定する
+  if(!attendees.includes(a)){ showToast('プレイヤーAはこの日「出席」登録しているメンバーのみ選択できます'); return; }
   if(!resultModalWinner){ showToast('勝者を選択してください'); return; }
-  if(!data.players[a] || !data.players[b]){ showToast('プレイヤーデータが見つかりません'); return; }
+  if(!data.players[a]){ showToast('プレイヤーデータが見つかりません'); return; }
+
+  const opponentRegistered = !!data.players[opponent];
+  const opponentMRValue = opponentRegistered
+    ? (registeredPlayerMR(opponent) || '')
+    : (document.getElementById('result-opponent-mr-input') ? document.getElementById('result-opponent-mr-input').value.trim() : resultModalOpponentMR.trim());
 
   const matchDate = new Date().toISOString();
   const resultId = genId();
   const resultA = resultModalWinner === 'A' ? 'win' : 'loss';
-  const resultB = resultModalWinner === 'A' ? 'loss' : 'win';
+  const resultOpp = resultModalWinner === 'A' ? 'loss' : 'win';
 
   if(!data.players[a].notifications) data.players[a].notifications = [];
-  if(!data.players[b].notifications) data.players[b].notifications = [];
 
   data.players[a].matches.push({
-    opponent: b, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`,
-    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId
+    opponent, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`,
+    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId,
+    opponentMR: opponentMRValue || ''
   });
-  data.players[b].matches.push({
-    opponent: a, result: resultB, score: `${resultModalScoreB}-${resultModalScoreA}`,
-    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId
-  });
-  data.players[a].notifications.push({opponent: b, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`, eventName: ev.title, date: matchDate});
-  data.players[b].notifications.push({opponent: a, result: resultB, score: `${resultModalScoreB}-${resultModalScoreA}`, eventName: ev.title, date: matchDate});
+
+  if(opponentRegistered){
+    if(!data.players[opponent].notifications) data.players[opponent].notifications = [];
+    data.players[opponent].matches.push({
+      opponent: a, result: resultOpp, score: `${resultModalScoreB}-${resultModalScoreA}`,
+      eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId,
+      opponentMR: registeredPlayerMR(a) || ''
+    });
+    data.players[opponent].notifications.push({opponent: a, result: resultOpp, score: `${resultModalScoreB}-${resultModalScoreA}`, eventName: ev.title, date: matchDate});
+  }
+  data.players[a].notifications.push({opponent, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`, eventName: ev.title, date: matchDate});
 
   if(!Array.isArray(ev.results)) ev.results = [];
-  ev.results.push({id: resultId, day, playerA: a, playerB: b, scoreA: resultModalScoreA, scoreB: resultModalScoreB, winner: resultModalWinner, at: matchDate});
+  ev.results.push({
+    id: resultId, day, playerA: a, opponentName: opponent, opponentRegistered,
+    scoreA: resultModalScoreA, scoreB: resultModalScoreB, winner: resultModalWinner,
+    opponentMR: opponentMRValue || '', at: matchDate
+  });
 
   resultModalPlayerA = '';
-  resultModalPlayerB = '';
+  resultModalOpponentName = '';
+  resultModalOpponentMR = '';
   resultModalScoreA = 0;
   resultModalScoreB = 0;
   resultModalWinner = '';
@@ -582,11 +635,15 @@ function eventResultsListHtml(ev, day){
   const rowsHtml = list.map(r=>`
     <div class="history-item">
       <div class="history-main">
-        <div class="top"><span class="names">${escapeHtml(r.playerA)} vs ${escapeHtml(r.playerB)}</span></div>
+        <div class="top">
+          <span class="names">${escapeHtml(r.playerA)} vs ${escapeHtml(r.opponentName)}</span>
+          ${!r.opponentRegistered ? `<span class="pill" style="background:rgba(139,137,154,.18);color:var(--text-dim);">未登録</span>` : ''}
+          ${r.opponentMR ? `<span class="pill" style="background:rgba(232,178,61,.12);color:var(--gold);">相手MR ${escapeHtml(r.opponentMR)}</span>` : ''}
+        </div>
         <div class="score-display"><span class="score-me">${r.scoreA}</span><span class="vs">vs</span><span class="score-opp">${r.scoreB}</span></div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-        <span class="pill win">${escapeHtml(r.winner==='A'?r.playerA:r.playerB)} WIN</span>
+        <span class="pill win">${escapeHtml(r.winner==='A'?r.playerA:r.opponentName)} WIN</span>
         <button class="ghost" onclick="adminDeleteEventResult('${ev.id}','${r.id}')" style="font-size:10px;padding:2px 6px;">削除</button>
       </div>
     </div>`).join('');
@@ -602,16 +659,16 @@ function adminDeleteEventResult(eventId, resultId){
     if(!ev || !Array.isArray(ev.results)) return;
     const result = ev.results.find(r=>r.id===resultId);
     if(!result) return;
-    if(!await confirmDialog(`${result.playerA}さん vs ${result.playerB}さんの結果を削除しますか?`)) return;
+    if(!await confirmDialog(`${result.playerA}さん vs ${result.opponentName}さんの結果を削除しますか?`)) return;
 
-    [result.playerA, result.playerB].forEach(name=>{
+    [result.playerA, result.opponentName].forEach(name=>{
       const p = data.players[name];
       if(!p) return;
       if(Array.isArray(p.matches)){
         p.matches = p.matches.filter(m=>m.eventResultId !== resultId);
       }
       if(Array.isArray(p.notifications)){
-        p.notifications = p.notifications.filter(n=>!(n.date===result.at && (n.opponent===result.playerA || n.opponent===result.playerB)));
+        p.notifications = p.notifications.filter(n=>!(n.date===result.at && (n.opponent===result.playerA || n.opponent===result.opponentName)));
       }
     });
     ev.results = ev.results.filter(r=>r.id!==resultId);
@@ -620,6 +677,7 @@ function adminDeleteEventResult(eventId, resultId){
     renderSchedule();
     renderResultModal();
     showToast('結果を削除しました');
+
   });
 }
 

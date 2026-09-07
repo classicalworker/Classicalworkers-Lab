@@ -493,6 +493,7 @@ function renderHistoryEditable(p){
           <div class="top">
             <span class="names">${escapeHtml(currentPlayer)} vs ${escapeHtml(m.opponent)}</span>
             ${eventBadge}
+            ${m.opponentMR ? `<span class="pill" style="background:rgba(232,178,61,.12);color:var(--gold);">相手MR ${escapeHtml(m.opponentMR)}</span>` : ''}
           </div>
           ${m.score ? `<div class="score-display"><span class="score-me">${escapeHtml(scoreMe)}</span><span class="vs">vs</span><span class="score-opp">${escapeHtml(scoreOpp)}</span></div>` : ''}
         </div>
