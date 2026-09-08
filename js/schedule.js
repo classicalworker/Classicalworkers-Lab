@@ -259,12 +259,15 @@ function tournamentCardHtml(t){
         ? `${dates[0]} 〜 ${dates[dates.length-1]}(${dates.length}日間)`
         : dates.join('・'))
     : (dates[0] || '日付未設定');
+  const syncedBadge = t.sourceEventId
+    ? `<span class="tournament-badge" onclick="jumpToEvent('${escapeHtml(t.sourceEventId)}','event')">🔗 予定の結果から自動保存</span>`
+    : '';
   return `
     <div class="tournament-card">
-      <div class="tournament-title">${escapeHtml(t.title)}</div>
+      <div class="tournament-title">${escapeHtml(t.title)} ${syncedBadge}</div>
       <div class="tournament-date">${escapeHtml(dateLabel)}</div>
       ${t.description ? `<div class="tournament-desc" style="white-space:pre-wrap">${escapeHtml(t.description)}</div>` : ''}
-      ${t.result ? `<div class="tournament-result">🏅 ${escapeHtml(t.result)}</div>` : ''}
+      ${t.result ? `<div class="tournament-result" style="white-space:pre-wrap">🏅 ${escapeHtml(t.result)}</div>` : ''}
       <div style="text-align:right;margin-top:8px;display:flex;justify-content:flex-end;gap:8px">
         <button class="edit-btn" onclick="openTournamentModal('${t.id}')">✎ 編集</button>
         <button class="ghost" onclick="deleteTournament('${t.id}')">削除</button>
@@ -563,6 +566,38 @@ function renderResultModal(){
   `;
 }
 
+// 予定(events)に紐づいて記録した対戦結果を、過去の大会情報(data.tournaments)にも自動反映する。
+// その予定の結果が1件もなければ大会記録からは除外し、結果があれば都度その予定専用の大会記録として同期する。
+function syncEventTournamentRecord(ev){
+  if(!Array.isArray(data.tournaments)) data.tournaments = [];
+  const results = (ev.results||[]).slice().sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+  let t = data.tournaments.find(x=>x.sourceEventId===ev.id);
+
+  if(results.length===0){
+    if(t) data.tournaments = data.tournaments.filter(x=>x!==t);
+    return;
+  }
+
+  const days = Array.from(new Set(results.map(r=>r.day))).sort();
+  const resultText = results.map(r=>{
+    const winnerName = r.winner==='A' ? r.playerA : r.opponentName;
+    const loserName = r.winner==='A' ? r.opponentName : r.playerA;
+    const winnerScore = r.winner==='A' ? r.scoreA : r.scoreB;
+    const loserScore = r.winner==='A' ? r.scoreB : r.scoreA;
+    return `◯ ${winnerName} ${winnerScore}-${loserScore} ${loserName} ●`;
+  }).join('\n');
+
+  if(t){
+    t.title = ev.title;
+    t.dates = days;
+    t.result = resultText;
+  } else {
+    data.tournaments.push({
+      id: genId(), title: ev.title, description: ev.description || '', result: resultText, dates: days, sourceEventId: ev.id
+    });
+  }
+}
+
 async function submitResultModal(){
   const ev = data.events.find(e=>e.id===resultModalEventId);
   if(!ev) return;
@@ -614,6 +649,8 @@ async function submitResultModal(){
     scoreA: resultModalScoreA, scoreB: resultModalScoreB, winner: resultModalWinner,
     opponentMR: opponentMRValue || '', at: matchDate
   });
+  // この予定の結果を「過去の大会情報」にも自動保存する
+  syncEventTournamentRecord(ev);
 
   resultModalPlayerA = '';
   resultModalOpponentName = '';
@@ -672,6 +709,8 @@ function adminDeleteEventResult(eventId, resultId){
       }
     });
     ev.results = ev.results.filter(r=>r.id!==resultId);
+    // 過去の大会情報も、削除後の状態にあわせて同期し直す
+    syncEventTournamentRecord(ev);
 
     await saveData();
     renderSchedule();
