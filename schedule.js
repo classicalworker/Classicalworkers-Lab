@@ -1,0 +1,1130 @@
+function genDateRange(start, end){
+  const startD = new Date(start + 'T00:00:00');
+  if(isNaN(startD.getTime())) return [start];
+  const endD = new Date((end || start) + 'T00:00:00');
+  if(isNaN(endD.getTime()) || endD < startD) return [start];
+  const days = [];
+  let d = startD;
+  let count = 0;
+  while(d <= endD && count < 60){
+    days.push(d.toISOString().slice(0,10));
+    d = new Date(d.getTime() + 86400000);
+    count++;
+  }
+  return days;
+}
+
+function getEventsByDate(){
+  const map = {};
+  (data.events||[]).forEach(ev=>{
+    (ev.dates||[]).forEach(d=>{
+      if(!map[d]) map[d] = [];
+      map[d].push(Object.assign({itemType:'event'}, ev));
+    });
+  });
+  (data.tournaments||[]).forEach(t=>{
+    // リンクしている予定がある場合は、その予定の日程にも大会記録を表示する
+    getTournamentDisplayDates(t).forEach(d=>{
+      if(!map[d]) map[d] = [];
+      map[d].push(Object.assign({itemType:'tournament'}, t));
+    });
+  });
+  return map;
+}
+
+
+function datesAreContiguousRange(dates){
+  if(dates.length<2) return false;
+  const full = genDateRange(dates[0], dates[dates.length-1]);
+  return full.length===dates.length && full.every((d,i)=>d===dates[i]);
+}
+
+function changeCalendarMonth(delta){
+  calendarMonth += delta;
+  if(calendarMonth<0){ calendarMonth=11; calendarYear--; }
+  if(calendarMonth>11){ calendarMonth=0; calendarYear++; }
+  renderSchedule();
+}
+
+function renderCalendarMonth(){
+  const eventsByDate = getEventsByDate();
+  const year = calendarYear, month = calendarMonth;
+  const firstOfMonth = new Date(year, month, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  const cells = [];
+  for(let i=0;i<startWeekday;i++) cells.push(null);
+  for(let d=1; d<=daysInMonth; d++) cells.push(d);
+  while(cells.length % 7 !== 0) cells.push(null);
+
+  const weekdayNames = ['日','月','火','水','木','金','土'];
+  const headerHtml = weekdayNames.map((w,i)=>`<div class="cal-weekday ${i===0?'sun':''} ${i===6?'sat':''}">${w}</div>`).join('');
+
+  const cellsHtml = cells.map((d, i)=>{
+    if(d===null) return `<div class="cal-cell empty"></div>`;
+    const col = i % 7;
+    const dateStr = `${year}-${pad2(month+1)}-${pad2(d)}`;
+    const evs = eventsByDate[dateStr] || [];
+    const isToday = dateStr === todayStr;
+    const shown = evs.slice(0,2).map(ev=>`<div class="cal-event-label" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>`).join('');
+    const more = evs.length>2 ? `<div class="cal-event-more">+${evs.length-2}件</div>` : '';
+    const clickAttr = evs.length ? ` onclick="openDayModal('${dateStr}')" style="cursor:pointer"` : '';
+    return `<div class="cal-cell ${isToday?'today':''} ${evs.length?'has-event':''} ${col===0?'sun-col':''} ${col===6?'sat-col':''}"${clickAttr}>
+      <div class="cal-daynum">${d}</div>
+      ${shown}${more}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="changeCalendarMonth(-1)">◀</button>
+      <div class="cal-nav-label">${year}年 ${month+1}月</div>
+      <button class="cal-nav-btn" onclick="changeCalendarMonth(1)">▶</button>
+    </div>
+    <div class="cal-legend"><span class="swatch"></span>予定のある日</div>
+    <div class="cal-grid">${headerHtml}${cellsHtml}</div>`;
+}
+
+function renderSchedule(){
+  const el = document.getElementById('view-schedule');
+
+  // サイト全体のログイン(名前+PIN)で本人が特定できているので、
+  // ここで改めて「あなたは」を聞かず、ログイン中の本人をそのまま出欠の記録対象にする
+  if(!currentPlayer){
+    const logged = getLoggedInPlayer();
+    if(logged && data.players[logged]) currentPlayer = logged;
+  }
+
+  const upcoming = (data.events||[]).filter(ev=>!isEventFullyPast(ev)).slice().sort((a,b)=> (a.dates[0]||'').localeCompare(b.dates[0]||''));
+  const eventsHtml = upcoming.length>0 ? upcoming.map(ev=>eventCardHtml(ev)).join('') : '<div class="empty">予定はまだありません</div>';
+
+  const calendarHtml = renderCalendarMonth();
+
+  const past = (data.tournaments||[]).slice().sort((a,b)=> (b.dates[0]||'').localeCompare(a.dates[0]||''));
+  const pastShown = past.slice(0,5);
+  const tournamentsHtml = past.length>0 ? pastShown.map(t=>tournamentCardHtml(t)).join('') : '<div class="empty">過去の大会記録はまだありません</div>';
+  const pastMoreHint = past.length>5 ? `<div class="attend-toggle-hint">他 ${past.length-5}件は、カレンダーの日付から確認できます。</div>` : '';
+
+  el.innerHTML = `
+    <div class="notice-section-title">📅 予定管理</div>
+    <div style="background:rgba(232,178,61,0.08);border:1px solid var(--panel-border);border-radius:10px;padding:14px;margin-bottom:16px;">
+      <div style="font-size:13px;color:var(--text);margin-bottom:8px;">📌 予定を追加して、メンバーの出席を確認しましょう</div>
+      <button class="add-open-btn" onclick="openEventModal()" style="margin:0;">＋ 新しい予定を追加</button>
+    </div>
+
+    ${eventsHtml}
+
+    <div class="notice-section-title">📅 カレンダー</div>
+    ${calendarHtml}
+    <div class="attend-toggle-hint">日付をタップすると、その日の予定を確認・出席登録できます。</div>
+
+    <div class="notice-section-title">🏆 過去の大会情報・大会記録</div>
+    ${tournamentsHtml}
+    ${pastMoreHint}
+    <button class="add-open-btn" onclick="openTournamentModal()">＋ 大会記録を追加</button>`;
+}
+
+function eventCardHtml(ev, onlyDay){
+  const isEditing = editingEventId === ev.id;
+  const dates = (ev.dates||[]).slice().sort();
+  const badge = formatDateBadge(dates[0]);
+  let rangeLabel = '';
+  if(dates.length>1){
+    rangeLabel = datesAreContiguousRange(dates)
+      ? `${formatDayShort(dates[0])} 〜 ${formatDayShort(dates[dates.length-1])}(${dates.length}日間)`
+      : `${dates.map(formatDayShort).join('・')}(${dates.length}日間)`;
+  }
+  const attendTag = ev.attendanceRequired
+    ? ''
+    : `<span class="pill" style="background:rgba(139,137,154,.18);color:var(--text-dim);margin-left:6px">出席確認なし</span>`;
+  const todayStr = new Date().toISOString().slice(0,10);
+  const deadlinePassed = !!(ev.attendanceRequired && ev.attendanceDeadline && todayStr > ev.attendanceDeadline);
+  const deadlineTag = (ev.attendanceRequired && ev.attendanceDeadline)
+    ? `<span class="deadline-badge ${deadlinePassed?'passed':''}">${deadlinePassed?'✅ 出欠確定':'⏰ 出席期限'} ${formatDayShort(ev.attendanceDeadline)}</span>`
+    : '';
+  const daysToShow = onlyDay ? dates.filter(d=>d===onlyDay) : dates;
+
+  if(isEditing){
+    return `
+      <div class="event-card editing">
+        <div class="edit-fields">
+          <div class="edit-row">
+            <div>
+              <label>タイトル</label>
+              <input type="text" id="edit-event-title-${ev.id}" value="${escapeHtml(ev.title)}">
+            </div>
+            <div>
+              <label>出席確認</label>
+              <select id="edit-event-attend-${ev.id}">
+                <option value="true" ${ev.attendanceRequired?'selected':''}>有</option>
+                <option value="false" ${!ev.attendanceRequired?'selected':''}>無</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label>詳細</label>
+            <textarea id="edit-event-desc-${ev.id}">${escapeHtml(ev.description||'')}</textarea>
+          </div>
+          ${ev.attendanceRequired ? `
+          <div>
+            <label>出席確認の期限日(任意)</label>
+            <input type="date" id="edit-event-deadline-${ev.id}" value="${escapeHtml(ev.attendanceDeadline||'')}">
+          </div>
+          ` : ''}
+          <div class="edit-actions">
+            <button class="primary" onclick="saveEventEdit('${ev.id}')">保存</button>
+            <button class="ghost" onclick="cancelEventEdit()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  let dayRowsHtml = '';
+  if(ev.attendanceRequired){
+    dayRowsHtml = daysToShow.map(day=>{
+      const dayAtt = (ev.attendance && ev.attendance[day]) || {};
+      const mine = currentPlayer ? dayAtt[currentPlayer] : null;
+      const groups = {yes:[], maybe:[], no:[], watch:[]};
+      Object.entries(dayAtt).forEach(([n,st])=>{ if(groups[st]) groups[st].push(n); });
+      const chipRow = (label, list, cls) => `
+        <div class="attend-breakdown-row">
+          <span class="attend-breakdown-label">${label}</span>
+          <span class="attend-breakdown-names">${list.length ? list.map(n=>`<span class="name-chip ${cls}">${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`).join('') : '<span class="attend-breakdown-empty">–</span>'}</span>
+        </div>`;
+      // 出席期限を過ぎたら、回答用のボタンは非表示にし、
+      // 「未定」「観戦」「出席(参加メンバー)」のみを確認用に表示する(欠席の内訳は表示しない)
+      const buttonsHtml = deadlinePassed ? '' : `
+          <div class="attend-buttons">
+            <div class="attend-btn yes ${mine==='yes'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','yes')">出席</div>
+            <div class="attend-btn no ${mine==='no'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','no')">欠席</div>
+            <div class="attend-btn watch ${mine==='watch'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','watch')">観戦</div>
+            <div class="attend-btn maybe ${mine==='maybe'?'selected':''}" onclick="setAttendance('${ev.id}','${day}','maybe')">未定</div>
+          </div>`;
+      const breakdownHtml = deadlinePassed ? `
+          <div class="attend-breakdown">
+            ${chipRow('未定', groups.maybe, 'maybe')}
+            ${chipRow('観戦', groups.watch, 'watch')}
+            ${chipRow('参加メンバー', groups.yes, 'yes')}
+          </div>` : `
+          <div class="attend-breakdown">
+            ${chipRow('出席', groups.yes, 'yes')}
+            ${chipRow('欠席', groups.no, 'no')}
+            ${chipRow('観戦', groups.watch, 'watch')}
+            ${chipRow('未定', groups.maybe, 'maybe')}
+          </div>`;
+      // 管理者モードでログイン中は、登録済みメンバーの出欠を代理で自由に編集できるようにする
+      const adminEditHtml = isAdminUnlocked() ? adminAttendEditHtml(ev.id, day, dayAtt) : '';
+      // 管理者モードでログイン中は、この日「出席」登録したメンバー同士の対戦結果を入力できるようにする
+      const dayResultCount = (ev.results||[]).filter(r=>r.day===day).length;
+      const resultBtnHtml = isAdminUnlocked() ? `
+        <div style="margin-top:10px">
+          <button class="btn-small" onclick="openResultModal('${ev.id}','${day}')">🏆 結果を入力${dayResultCount ? `(${dayResultCount}件記録済み)` : ''}</button>
+        </div>` : '';
+      return `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--panel-border)">
+          ${dates.length>1 ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--gold);margin-bottom:6px">${formatDayShort(day)}</div>` : ''}
+          ${buttonsHtml}
+          ${breakdownHtml}
+          ${adminEditHtml}
+          ${resultBtnHtml}
+        </div>`;
+    }).join('');
+  }
+
+  return `
+    <div class="event-card">
+      <div class="event-top">
+        <div class="event-date-badge"><div class="d">${badge.d}</div><div class="m">${badge.m}</div></div>
+        <div style="flex:1">
+          <div class="event-title">${escapeHtml(ev.title)}${attendTag}</div>
+          ${deadlineTag ? `<div style="margin-top:4px">${deadlineTag}</div>` : ''}
+          ${rangeLabel ? `<div class="event-desc" style="color:var(--gold)">${rangeLabel}</div>` : ''}
+          ${ev.description ? `<div class="event-desc">${escapeHtml(ev.description)}</div>` : ''}
+        </div>
+        <div class="event-actions">
+          <button class="edit-btn" onclick="startEditEvent('${ev.id}')">✎ 編集</button>
+          <button class="ghost" onclick="deleteEvent('${ev.id}')">削除</button>
+        </div>
+      </div>
+      ${dayRowsHtml}
+    </div>`;
+}
+
+function tournamentCardHtml(t){
+  const dates = (t.dates||[]).slice().sort();
+  const dateLabel = dates.length>1
+    ? (datesAreContiguousRange(dates)
+        ? `${dates[0]} 〜 ${dates[dates.length-1]}(${dates.length}日間)`
+        : dates.join('・'))
+    : (dates[0] || '日付未設定');
+  const linkedEv = getLinkedEventForTournament(t);
+  let syncedBadge = '';
+  if(linkedEv && t.sourceEventId){
+    syncedBadge = `<span class="tournament-badge" onclick="jumpToEvent('${escapeHtml(linkedEv.id)}','event')">🔗 予定の結果から自動保存</span>`;
+  } else if(linkedEv){
+    syncedBadge = `<span class="tournament-badge" onclick="jumpToEvent('${escapeHtml(linkedEv.id)}','event')">🔗 予定「${escapeHtml(linkedEv.title)}」とリンク中</span>`;
+  }
+  return `
+    <div class="tournament-card">
+      <div class="tournament-title">${escapeHtml(t.title)} ${syncedBadge}</div>
+      <div class="tournament-date">${escapeHtml(dateLabel)}</div>
+      ${t.description ? `<div class="tournament-desc" style="white-space:pre-wrap">${escapeHtml(t.description)}</div>` : ''}
+      ${t.result ? `<div class="tournament-result" style="white-space:pre-wrap">🏅 ${escapeHtml(t.result)}</div>` : ''}
+      <div style="text-align:right;margin-top:8px;display:flex;justify-content:flex-end;gap:8px">
+        <button class="edit-btn" onclick="openTournamentModal('${t.id}')">✎ 編集</button>
+        <button class="ghost" onclick="deleteTournament('${t.id}')">削除</button>
+      </div>
+    </div>`;
+}
+
+function startEditEvent(id){
+  requireAdminPin(()=>{
+    editingEventId = id;
+    // 編集モードに入ったら詳細モーダルを閉じる
+    closeModal();
+    renderSchedule();
+  });
+}
+
+function cancelEventEdit(){
+  editingEventId = null;
+  renderSchedule();
+}
+
+async function saveEventEdit(id){
+  const ev = data.events.find(e=>e.id===id);
+  if(!ev) return;
+  const title = document.getElementById('edit-event-title-'+id).value.trim();
+  const desc = document.getElementById('edit-event-desc-'+id).value.trim();
+  const attendRequired = document.getElementById('edit-event-attend-'+id).value === 'true';
+  const deadlineEl = document.getElementById('edit-event-deadline-'+id);
+  if(!title){ showToast('タイトルを入力してください'); return; }
+  ev.title = title;
+  ev.description = desc;
+  ev.attendanceRequired = attendRequired;
+  ev.attendanceDeadline = attendRequired && deadlineEl ? (deadlineEl.value || null) : null;
+  editingEventId = null;
+  await saveData();
+  renderSchedule();
+  showToast('更新しました');
+}
+
+function openDayModal(dateStr){
+  const items = (getEventsByDate()[dateStr]) || [];
+  const badge = formatDateBadge(dateStr);
+  const bodyHtml = items.length
+    ? items.map(item => item.itemType==='tournament' ? tournamentCardHtml(item) : eventCardHtml(item, dateStr)).join('')
+    : '<div class="empty">この日の予定はありません</div>';
+  openModal(`
+    <div class="modal-head">
+      <h2>${badge.m} ${badge.d}日 の予定</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    ${bodyHtml}
+  `);
+  document.getElementById('modal-box').dataset.dayModal = dateStr;
+}
+
+function deleteEvent(id){
+  requireAdminPin(async ()=>{
+    // 確認ダイアログは同じモーダル領域を使うため、日付詳細モーダルを開いた状態から
+    // 呼ばれた場合はキャンセル時に元の表示へ戻す
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none';
+    const priorDay = document.getElementById('modal-box').dataset.dayModal;
+    if(!await confirmDialog('この予定を削除しますか？')){
+      if(wasDayModalOpen && priorDay) openDayModal(priorDay);
+      return;
+    }
+    data.events = data.events.filter(e=>e.id!==id);
+    // 削除された予定にリンクしていた大会記録は、リンクだけ解除して残す
+    (data.tournaments||[]).forEach(t=>{ if(t.linkedEventId===id) t.linkedEventId = null; });
+    editingEventId = null;
+    await saveData();
+    closeModal();
+    renderSchedule();
+    showToast('削除しました');
+  });
+}
+
+async function setAttendance(eventId, day, status){
+  if(!currentPlayer){ showToast('ログイン中のプレイヤー情報を確認できませんでした'); return; }
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev) return;
+  const todayStr = new Date().toISOString().slice(0,10);
+  if(ev.attendanceDeadline && todayStr > ev.attendanceDeadline){ showToast('出欠はすでに確定しています'); return; }
+  if(!ev.attendance) ev.attendance = {};
+  if(!ev.attendance[day]) ev.attendance[day] = {};
+  ev.attendance[day][currentPlayer] = status;
+  await saveData();
+  renderSchedule();
+  if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
+    openDayModal(day);
+  }
+}
+
+// 管理者権限: 登録済みメンバー全員分の出欠を一覧表示し、その場で自由に編集できるようにする
+function adminAttendEditHtml(eventId, day, dayAtt){
+  const names = Object.keys(data.players).slice().sort((a,b)=>a.localeCompare(b,'ja'));
+  if(names.length===0) return '';
+  const statusOptions = [
+    {v:'', label:'未回答'},
+    {v:'yes', label:'出席'},
+    {v:'no', label:'欠席'},
+    {v:'watch', label:'観戦'},
+    {v:'maybe', label:'未定'}
+  ];
+  const rowsHtml = names.map(n=>{
+    const current = dayAtt[n] || '';
+    const optionsHtml = statusOptions.map(o=>`<option value="${o.v}" ${current===o.v?'selected':''}>${o.label}</option>`).join('');
+    return `
+      <div class="admin-attend-row">
+        <span class="admin-attend-name">${escapeHtml(n)}</span>
+        <select class="admin-attend-select" onchange="adminSetAttendance('${eventId}','${day}','${escapeHtml(n)}', this.value)">${optionsHtml}</select>
+      </div>`;
+  }).join('');
+  return `
+    <div class="admin-attend-edit">
+      <div class="admin-attend-edit-title">👑 管理者モード:出欠をまとめて編集</div>
+      <div class="admin-attend-edit-list">${rowsHtml}</div>
+    </div>`;
+}
+
+// 管理者権限: 特定メンバーの出欠を代理で自由に設定する(空選択で未回答に戻す)
+async function adminSetAttendance(eventId, day, name, status){
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev) return;
+  if(!ev.attendance) ev.attendance = {};
+  if(!ev.attendance[day]) ev.attendance[day] = {};
+  if(status){
+    ev.attendance[day][name] = status;
+  } else {
+    delete ev.attendance[day][name];
+  }
+  await saveData();
+  renderSchedule();
+  if(document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day){
+    openDayModal(day);
+  }
+  showToast(`${name}さんの出欠を更新しました`);
+}
+
+// 管理者権限: 特定メンバーの出欠回答を削除する
+function adminDeleteAttendance(eventId, day, name){
+  requireAdminPin(async ()=>{
+    const ev = data.events.find(e=>e.id===eventId);
+    if(!ev || !ev.attendance || !ev.attendance[day]) return;
+    // 確認ダイアログは同じモーダル領域を使うため、日付詳細モーダルを開いた状態から
+    // 呼ばれた場合はキャンセル時に元の表示へ戻す
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none' && document.getElementById('modal-box').dataset.dayModal === day;
+    if(!await confirmDialog(`${name}さんの出欠回答を削除しますか?`)){
+      if(wasDayModalOpen) openDayModal(day);
+      return;
+    }
+    delete ev.attendance[day][name];
+    await saveData();
+    renderSchedule();
+    if(wasDayModalOpen){
+      openDayModal(day);
+    }
+    showToast('出欠回答を削除しました');
+  });
+}
+
+// ===== 管理者権限:予定に紐づく対戦結果の入力 =====
+// その日「出席」登録したメンバー(プレイヤーA)を起点に、対戦結果をその場で記録できるようにする。
+// 対戦相手は自由入力(対抗戦の外部プレイヤーなど)にも対応し、登録メンバーであれば
+// そのメンバーに紐づくMRを自動反映、未登録なら手入力でMRを記録できる。
+// 記録した結果は各メンバーの対戦履歴(matches)にも反映され、ランキング・戦績に自動反映される。
+let resultModalEventId = null;
+let resultModalDay = null;
+let resultModalPlayerA = '';
+let resultModalOpponentName = '';
+let resultModalOpponentMR = '';
+let resultModalScoreA = 0;
+let resultModalScoreB = 0;
+let resultModalWinner = '';
+
+// その予定・その日に「出席」登録しているメンバー一覧を返す
+function getEventDayAttendees(eventId, day){
+  const ev = data.events.find(e=>e.id===eventId);
+  if(!ev || !ev.attendance || !ev.attendance[day]) return [];
+  return Object.entries(ev.attendance[day])
+    .filter(([,st])=>st==='yes')
+    .map(([n])=>n)
+    .sort((a,b)=>a.localeCompare(b,'ja'));
+}
+
+// 名前が登録メンバーの場合、そのメンバーに紐づくMR(現在のMR、なければ最大MR)を返す
+function registeredPlayerMR(name){
+  const p = data.players[name];
+  if(!p) return null;
+  return p.currentMR || p.maxMR || '';
+}
+
+function openResultModal(eventId, day){
+  requireAdminPin(()=>{
+    resultModalEventId = eventId;
+    resultModalDay = day;
+    resultModalPlayerA = '';
+    resultModalOpponentName = '';
+    resultModalOpponentMR = '';
+    resultModalScoreA = 0;
+    resultModalScoreB = 0;
+    resultModalWinner = '';
+    closeModal();
+    renderResultModal();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
+}
+
+function resultModalSetPlayerA(v){ resultModalPlayerA = v; renderResultModal(); }
+function resultModalSetScoreA(v){ resultModalScoreA = v; renderResultModal(); }
+function resultModalSetScoreB(v){ resultModalScoreB = v; renderResultModal(); }
+function resultModalSetWinner(v){ resultModalWinner = v; renderResultModal(); }
+
+// 対戦相手欄の入力ごとに、登録メンバーかどうかに応じてMR欄の表示だけを差し替える(モーダル全体は再描画しない)
+function resultModalOpponentInput(v){
+  resultModalOpponentName = v;
+  const box = document.getElementById('result-opponent-mr-box');
+  if(box) box.innerHTML = resultModalOpponentMRBoxHtml();
+}
+
+function resultModalOpponentMRBoxHtml(){
+  const name = resultModalOpponentName.trim();
+  const mr = name ? registeredPlayerMR(name) : null;
+  if(name && mr !== null){
+    return `<div class="attend-toggle-hint">🔗 登録メンバーのMRを自動反映します${mr ? `(現在のMR: ${escapeHtml(mr)})` : '(MR未登録)'}</div>`;
+  }
+  return `
+    <label>相手のMR(任意)</label>
+    <input type="text" id="result-opponent-mr-input" value="${escapeHtml(resultModalOpponentMR)}" placeholder="例:1650" oninput="resultModalOpponentMR=this.value">
+    <div class="attend-toggle-hint">未登録の相手(対抗戦の外部プレイヤーなど)の場合は、わかる範囲でMRを入力してください。</div>`;
+}
+
+function renderResultModal(){
+  const ev = data.events.find(e=>e.id===resultModalEventId);
+  if(!ev){ closeModal(); return; }
+  const day = resultModalDay;
+  const badge = formatDateBadge(day);
+  const attendees = getEventDayAttendees(resultModalEventId, day);
+  const existingHtml = eventResultsListHtml(ev, day);
+
+  if(attendees.length === 0){
+    document.getElementById('modal-box').innerHTML = `
+      <div class="modal-head">
+        <h2>🏆 結果を入力</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日</div>
+      <div class="empty">この日「出席」登録しているメンバーがいないと、結果を入力できません。</div>
+      ${existingHtml}
+    `;
+    return;
+  }
+
+  const optsA = attendees.map(n=>`<option value="${escapeHtml(n)}" ${resultModalPlayerA===n?'selected':''}>${escapeHtml(n)}</option>`).join('');
+  const otherPlayers = Object.keys(data.players).filter(n=>n!==resultModalPlayerA).sort((a,b)=>a.localeCompare(b,'ja'));
+  const opponentOptions = otherPlayers.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  const scoreAHtml = Array.from({length:11}, (_,i)=>`<button class="score-btn ${i===resultModalScoreA?'active':''}" onclick="resultModalSetScoreA(${i})">${i}</button>`).join('');
+  const scoreBHtml = Array.from({length:11}, (_,i)=>`<button class="score-btn ${i===resultModalScoreB?'active':''}" onclick="resultModalSetScoreB(${i})">${i}</button>`).join('');
+
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <h2>🏆 結果を入力</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日 に「出席」登録したメンバーのみプレイヤーAに選択できます。</div>
+
+    <label>プレイヤーA(出席メンバー)<span class="req-mark">*</span></label>
+    <select id="result-player-a" onchange="resultModalSetPlayerA(this.value)">
+      <option value="">選択してください</option>
+      ${optsA}
+    </select>
+
+    <label style="margin-top:10px">対戦相手(自由入力または選択)<span class="req-mark">*</span></label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="text" id="result-opponent-input" placeholder="対戦相手の名前を入力(対抗戦の相手もOK)" style="flex:1;" value="${escapeHtml(resultModalOpponentName)}" oninput="resultModalOpponentInput(this.value)">
+      <span style="color:var(--text-dim);font-size:11px;">または</span>
+      <select id="result-opponent-select" style="flex:1;" onchange="document.getElementById('result-opponent-input').value=this.value; resultModalOpponentInput(this.value);">
+        <option value="">選択する</option>
+        ${opponentOptions}
+      </select>
+    </div>
+    <div id="result-opponent-mr-box">${resultModalOpponentMRBoxHtml()}</div>
+
+    <label style="margin-top:12px">スコア(A − 相手)</label>
+    <div class="score-vs">A: ${resultModalPlayerA ? escapeHtml(resultModalPlayerA) : '–'}</div>
+    <div class="score-buttons">${scoreAHtml}</div>
+    <div class="score-vs">− 対 −</div>
+    <div class="score-buttons">${scoreBHtml}</div>
+    <div class="score-vs">相手: ${resultModalOpponentName ? escapeHtml(resultModalOpponentName) : '–'}</div>
+
+    <label style="margin-top:12px">勝者</label>
+    <div class="choice-group">
+      <div class="choice win ${resultModalWinner==='A'?'selected':''}" onclick="resultModalSetWinner('A')">Aの勝ち</div>
+      <div class="choice loss ${resultModalWinner==='B'?'selected':''}" onclick="resultModalSetWinner('B')">相手の勝ち</div>
+    </div>
+
+    <button class="primary" onclick="submitResultModal()">記録する</button>
+    ${existingHtml}
+  `;
+}
+
+// 予定(events)に紐づいて記録した対戦結果を、過去の大会情報(data.tournaments)にも自動反映する。
+// その予定の結果が1件もなければ大会記録からは除外し、結果があれば都度その予定専用の大会記録として同期する。
+function syncEventTournamentRecord(ev){
+  if(!Array.isArray(data.tournaments)) data.tournaments = [];
+  const results = (ev.results||[]).slice().sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+  let t = data.tournaments.find(x=>x.sourceEventId===ev.id);
+
+  if(results.length===0){
+    if(t) data.tournaments = data.tournaments.filter(x=>x!==t);
+    return;
+  }
+
+  const days = Array.from(new Set(results.map(r=>r.day))).sort();
+  const resultText = results.map(r=>{
+    const winnerName = r.winner==='A' ? r.playerA : r.opponentName;
+    const loserName = r.winner==='A' ? r.opponentName : r.playerA;
+    const winnerScore = r.winner==='A' ? r.scoreA : r.scoreB;
+    const loserScore = r.winner==='A' ? r.scoreB : r.scoreA;
+    return `◯ ${winnerName} ${winnerScore}-${loserScore} ${loserName} ●`;
+  }).join('\n');
+
+  if(t){
+    t.title = ev.title;
+    t.dates = days;
+    t.result = resultText;
+  } else {
+    data.tournaments.push({
+      id: genId(), title: ev.title, description: ev.description || '', result: resultText, dates: days, sourceEventId: ev.id
+    });
+  }
+}
+
+async function submitResultModal(){
+  const ev = data.events.find(e=>e.id===resultModalEventId);
+  if(!ev) return;
+  const day = resultModalDay;
+  const attendees = getEventDayAttendees(resultModalEventId, day);
+  const a = resultModalPlayerA;
+  const opponentInput = document.getElementById('result-opponent-input');
+  const opponent = (opponentInput ? opponentInput.value : resultModalOpponentName).trim();
+  if(!a){ showToast('プレイヤーAを選択してください'); return; }
+  if(!opponent){ showToast('対戦相手を入力または選択してください'); return; }
+  if(a === opponent){ showToast('同じ名前は選択できません'); return; }
+  // プレイヤーA(結果の記録対象)は、出席しているメンバーのみに限定する
+  if(!attendees.includes(a)){ showToast('プレイヤーAはこの日「出席」登録しているメンバーのみ選択できます'); return; }
+  if(!resultModalWinner){ showToast('勝者を選択してください'); return; }
+  if(!data.players[a]){ showToast('プレイヤーデータが見つかりません'); return; }
+
+  const opponentRegistered = !!data.players[opponent];
+  const opponentMRValue = opponentRegistered
+    ? (registeredPlayerMR(opponent) || '')
+    : (document.getElementById('result-opponent-mr-input') ? document.getElementById('result-opponent-mr-input').value.trim() : resultModalOpponentMR.trim());
+
+  const matchDate = new Date().toISOString();
+  const resultId = genId();
+  const resultA = resultModalWinner === 'A' ? 'win' : 'loss';
+  const resultOpp = resultModalWinner === 'A' ? 'loss' : 'win';
+
+  if(!data.players[a].notifications) data.players[a].notifications = [];
+
+  data.players[a].matches.push({
+    opponent, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`,
+    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId,
+    opponentMR: opponentMRValue || ''
+  });
+
+  if(opponentRegistered){
+    if(!data.players[opponent].notifications) data.players[opponent].notifications = [];
+    data.players[opponent].matches.push({
+      opponent: a, result: resultOpp, score: `${resultModalScoreB}-${resultModalScoreA}`,
+      eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId,
+      opponentMR: registeredPlayerMR(a) || ''
+    });
+    data.players[opponent].notifications.push({opponent: a, result: resultOpp, score: `${resultModalScoreB}-${resultModalScoreA}`, eventName: ev.title, date: matchDate});
+  }
+  data.players[a].notifications.push({opponent, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`, eventName: ev.title, date: matchDate});
+
+  if(!Array.isArray(ev.results)) ev.results = [];
+  ev.results.push({
+    id: resultId, day, playerA: a, opponentName: opponent, opponentRegistered,
+    scoreA: resultModalScoreA, scoreB: resultModalScoreB, winner: resultModalWinner,
+    opponentMR: opponentMRValue || '', at: matchDate
+  });
+  // この予定の結果を「過去の大会情報」にも自動保存する
+  syncEventTournamentRecord(ev);
+
+  resultModalPlayerA = '';
+  resultModalOpponentName = '';
+  resultModalOpponentMR = '';
+  resultModalScoreA = 0;
+  resultModalScoreB = 0;
+  resultModalWinner = '';
+
+  await saveData();
+  renderSchedule();
+  renderResultModal();
+  showToast('結果を記録しました');
+}
+
+// 記録済みの結果を一覧表示(その日の分)。管理者は個別に削除できる
+function eventResultsListHtml(ev, day){
+  const list = (ev.results||[]).filter(r=>r.day===day).slice().sort((a,b)=>(a.at||'').localeCompare(b.at||''));
+  if(list.length===0) return '';
+  const rowsHtml = list.map(r=>`
+    <div class="history-item">
+      <div class="history-main">
+        <div class="top">
+          <span class="names">${escapeHtml(r.playerA)} vs ${escapeHtml(r.opponentName)}</span>
+          ${!r.opponentRegistered ? `<span class="pill" style="background:rgba(139,137,154,.18);color:var(--text-dim);">未登録</span>` : ''}
+          ${r.opponentMR ? `<span class="pill" style="background:rgba(232,178,61,.12);color:var(--gold);">相手MR ${escapeHtml(r.opponentMR)}</span>` : ''}
+        </div>
+        <div class="score-display"><span class="score-me">${r.scoreA}</span><span class="vs">vs</span><span class="score-opp">${r.scoreB}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <span class="pill win">${escapeHtml(r.winner==='A'?r.playerA:r.opponentName)} WIN</span>
+        <button class="ghost" onclick="adminDeleteEventResult('${ev.id}','${r.id}')" style="font-size:10px;padding:2px 6px;">削除</button>
+      </div>
+    </div>`).join('');
+  return `
+    <div class="notice-section-title" style="margin-top:16px">記録済みの結果</div>
+    ${rowsHtml}`;
+}
+
+// 記録済みの結果を削除する(両プレイヤーの対戦履歴・通知からも取り消す)
+function adminDeleteEventResult(eventId, resultId){
+  requireAdminPin(async ()=>{
+    const ev = data.events.find(e=>e.id===eventId);
+    if(!ev || !Array.isArray(ev.results)) return;
+    const result = ev.results.find(r=>r.id===resultId);
+    if(!result) return;
+    if(!await confirmDialog(`${result.playerA}さん vs ${result.opponentName}さんの結果を削除しますか?`)) return;
+
+    [result.playerA, result.opponentName].forEach(name=>{
+      const p = data.players[name];
+      if(!p) return;
+      if(Array.isArray(p.matches)){
+        p.matches = p.matches.filter(m=>m.eventResultId !== resultId);
+      }
+      if(Array.isArray(p.notifications)){
+        p.notifications = p.notifications.filter(n=>!(n.date===result.at && (n.opponent===result.playerA || n.opponent===result.opponentName)));
+      }
+    });
+    ev.results = ev.results.filter(r=>r.id!==resultId);
+    // 過去の大会情報も、削除後の状態にあわせて同期し直す
+    syncEventTournamentRecord(ev);
+
+    await saveData();
+    renderSchedule();
+    renderResultModal();
+    showToast('結果を削除しました');
+
+  });
+}
+
+function deleteTournament(id){
+  requireAdminPin(async ()=>{
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none';
+    const priorDay = document.getElementById('modal-box').dataset.dayModal;
+    if(!await confirmDialog('この大会記録を削除しますか？')){
+      if(wasDayModalOpen && priorDay) openDayModal(priorDay);
+      return;
+    }
+    data.tournaments = data.tournaments.filter(t=>t.id!==id);
+    await saveData();
+    renderSchedule();
+    showToast('削除しました');
+  });
+}
+
+function pickerInit(initialDates){
+  picker = { dates: new Set(initialDates||[]), year: _today.getFullYear(), month: _today.getMonth() };
+  if(initialDates && initialDates.length){
+    const d = new Date(initialDates[0]+'T00:00:00');
+    if(!isNaN(d.getTime())){ picker.year = d.getFullYear(); picker.month = d.getMonth(); }
+  }
+}
+
+function pickerChangeMonth(delta, renderFn){
+  picker.month += delta;
+  if(picker.month<0){ picker.month=11; picker.year--; }
+  if(picker.month>11){ picker.month=0; picker.year++; }
+  window[renderFn]();
+}
+
+function pickerToggleDate(dateStr, renderFn){
+  if(picker.dates.has(dateStr)) picker.dates.delete(dateStr);
+  else picker.dates.add(dateStr);
+  window[renderFn]();
+}
+
+function pickerApplyRange(startId, endId, renderFn){
+  const start = document.getElementById(startId).value;
+  const endRaw = document.getElementById(endId).value;
+  if(!start){ showToast('開始日を選択してください'); return; }
+  const end = endRaw || start;
+  if(end < start){ showToast('終了日は開始日より後にしてください'); return; }
+  genDateRange(start, end).forEach(d=>picker.dates.add(d));
+  window[renderFn]();
+}
+
+function pickerClear(renderFn){
+  picker.dates.clear();
+  window[renderFn]();
+}
+
+function pickerCalendarHtml(onClickFnName){
+  const year = picker.year, month = picker.month;
+  const firstOfMonth = new Date(year, month, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+  const cells = [];
+  for(let i=0;i<startWeekday;i++) cells.push(null);
+  for(let d=1; d<=daysInMonth; d++) cells.push(d);
+  const weekdayNames = ['日','月','火','水','木','金','土'];
+  const headerHtml = weekdayNames.map(w=>`<div class="picker-weekday">${w}</div>`).join('');
+  const cellsHtml = cells.map(d=>{
+    if(d===null) return `<div class="picker-cell empty"></div>`;
+    const dateStr = `${year}-${pad2(month+1)}-${pad2(d)}`;
+    const isToday = dateStr===todayStr;
+    const isSelected = picker.dates.has(dateStr);
+    return `<div class="picker-cell ${isSelected?'selected':''} ${isToday?'today':''}" onclick="${onClickFnName}('${dateStr}')">${d}</div>`;
+  }).join('');
+  const sortedDates = Array.from(picker.dates).sort();
+  const summaryHtml = sortedDates.length
+    ? `<span>選択中: ${sortedDates.map(formatDayShort).join('・')}</span><button class="picker-clear" onclick="${onClickFnName==='eventModalToggleDate'?'eventModalClear':'tournamentModalClear'}()">すべて解除</button>`
+    : `<span>まだ日付が選択されていません</span>`;
+  return `
+    <div class="picker-cal">
+      <div class="picker-cal-nav">
+        <button type="button" class="picker-cal-btn" onclick="${onClickFnName==='eventModalToggleDate'?'eventModalChangeMonth(-1)':'tournamentModalChangeMonth(-1)'}">◀</button>
+        <div class="picker-cal-label">${year}年 ${month+1}月</div>
+        <button type="button" class="picker-cal-btn" onclick="${onClickFnName==='eventModalToggleDate'?'eventModalChangeMonth(1)':'tournamentModalChangeMonth(1)'}">▶</button>
+      </div>
+      <div class="picker-grid">${headerHtml}${cellsHtml}</div>
+      <div class="picker-selected-summary">${summaryHtml}</div>
+    </div>`;
+}
+
+let eventModalAttendanceRequired = true;
+let eventModalTitle = '';
+let eventModalDesc = '';
+let eventModalDeadline = '';
+
+function openEventModal(){
+  requireAdminPin(()=>{
+    eventModalAttendanceRequired = true;
+    eventModalTitle = '';
+    eventModalDesc = '';
+    eventModalDeadline = '';
+    pickerInit([]);
+    renderEventModal();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
+}
+function eventModalChangeMonth(delta){ eventModalSyncInputs(); pickerChangeMonth(delta, 'renderEventModal'); }
+function eventModalSyncInputs(){
+  const titleEl = document.getElementById('event-title-input');
+  const descEl = document.getElementById('event-desc-input');
+  const deadlineEl = document.getElementById('event-deadline-input');
+  if(titleEl) eventModalTitle = titleEl.value;
+  if(descEl) eventModalDesc = descEl.value;
+  if(deadlineEl) eventModalDeadline = deadlineEl.value;
+}
+function eventModalToggleDate(d){ 
+  eventModalSyncInputs();
+  pickerToggleDate(d, 'renderEventModal');
+}
+function eventModalClear(){ 
+  eventModalSyncInputs();
+  pickerClear('renderEventModal');
+}
+function eventModalApplyRange(){ 
+  eventModalSyncInputs();
+  pickerApplyRange('event-range-start','event-range-end','renderEventModal');
+}
+function eventModalSetAttendance(v){
+  eventModalAttendanceRequired = v;
+  eventModalSyncInputs();
+  renderEventModal();
+  const titleInput = document.getElementById('event-title-input');
+  const descInput = document.getElementById('event-desc-input');
+  const deadlineInput = document.getElementById('event-deadline-input');
+  if(titleInput) titleInput.value = eventModalTitle;
+  if(descInput) descInput.value = eventModalDesc;
+  if(deadlineInput) deadlineInput.value = eventModalDeadline;
+}
+
+function renderEventModal(){
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <h2>📅 予定を追加</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div style="background:rgba(232,178,61,0.06);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text-dim);">
+      💡 予定を追加すると、メンバーが出席・欠席を登録できるようになります。
+    </div>
+    <label>タイトル<span class="req-mark">*</span></label>
+    <input type="text" id="event-title-input" placeholder="例:定期対戦会" value="${escapeHtml(eventModalTitle)}">
+
+    <label>出席確認</label>
+    <div class="choice-group">
+      <div class="choice ${eventModalAttendanceRequired?'win selected':''}" onclick="eventModalSetAttendance(true)">有</div>
+      <div class="choice ${!eventModalAttendanceRequired?'loss selected':''}" onclick="eventModalSetAttendance(false)">無</div>
+    </div>
+    <div class="attend-toggle-hint">「無」の場合、この予定には出席・欠席の登録は行われません。</div>
+
+    <div class="date-section" id="event-date-section">
+      <label>開催日<span class="req-mark">*</span></label>
+      <div class="attend-toggle-hint">期間で範囲指定するか、カレンダーで個別の日にちをタップして選択してください</div>
+      <div class="date-mode-row">
+        <div class="row">
+          <div>
+            <label>開始日</label>
+            <input type="date" id="event-range-start">
+          </div>
+          <div>
+            <label>終了日</label>
+            <input type="date" id="event-range-end">
+          </div>
+        </div>
+        <button type="button" class="btn-small" onclick="eventModalApplyRange()">範囲を追加</button>
+      </div>
+      ${pickerCalendarHtml('eventModalToggleDate')}
+    </div>
+
+    <label>詳細(任意)</label>
+    <textarea id="event-desc-input" placeholder="例:オンライン、19時集合">${escapeHtml(eventModalDesc)}</textarea>
+
+    ${eventModalAttendanceRequired ? `
+    <label>出席確認の期限日(任意)</label>
+    <input type="date" id="event-deadline-input" value="${escapeHtml(eventModalDeadline)}">
+    <div class="attend-toggle-hint">期限を過ぎると、出欠が確定として表示されます。</div>
+    ` : ''}
+
+    <button class="primary" onclick="submitEventModal()">予定を追加する</button>
+  `;
+}
+
+async function submitEventModal(){
+  const titleInput = document.getElementById('event-title-input');
+  const title = titleInput.value.trim();
+  const description = document.getElementById('event-desc-input').value.trim();
+  const deadlineInput = document.getElementById('event-deadline-input');
+  const attendanceDeadline = deadlineInput ? deadlineInput.value : '';
+  const dates = Array.from(picker.dates).sort();
+  const missing = [];
+  if(!title){ flagFieldError('event-title-input'); missing.push('タイトル'); }
+  if(dates.length===0){ flagSectionError('event-date-section'); missing.push('開催日'); }
+  if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
+  const newEventId = genId();
+  data.events.push({id: newEventId, title, description, dates, attendanceRequired: eventModalAttendanceRequired, attendanceDeadline: attendanceDeadline || null, attendance:{}, results:[]});
+  {
+    // 日程・締切・出欠確認の有無を1行にまとめて表示する(詳細入力があればタイトル横に明示)
+    const detailTag = description ? '(詳細あり)' : '';
+    const dateText = dates.map(d=>formatDayShort(d)).join('、');
+    const deadlineText = attendanceDeadline ? `　⏰ 締切:${formatDayShort(attendanceDeadline)}` : '';
+    const attendText = eventModalAttendanceRequired ? '　✅ 出欠確認あり' : '　❎ 出欠確認なし';
+    pushAnnouncement(`📅「${title}」${detailTag}が予定に登録されました　🗓 ${dateText}${deadlineText}${attendText}`, false, {id: newEventId, type: 'event'});
+  }
+  await saveData();
+  closeModal();
+  renderSchedule();
+  showToast('予定を追加しました');
+}
+
+let tournamentModalTitle = '';
+let tournamentModalDesc = '';
+let tournamentModalResult = '';
+let tournamentModalLinkedEventId = '';
+let editingTournamentId = null;
+
+function openTournamentModal(id){
+  requireAdminPin(()=>{
+    editingTournamentId = id || null;
+    if(editingTournamentId){
+      const t = (data.tournaments||[]).find(t=>t.id===editingTournamentId);
+      if(!t){ editingTournamentId = null; }
+      tournamentModalTitle = t ? t.title : '';
+      tournamentModalDesc = t ? (t.description||'') : '';
+      tournamentModalResult = t ? (t.result||'') : '';
+      tournamentModalLinkedEventId = t ? (getTournamentLinkedEventId(t) || '') : '';
+      pickerInit(t ? t.dates : []);
+    } else {
+      tournamentModalTitle = '';
+      tournamentModalDesc = '';
+      tournamentModalResult = '';
+      tournamentModalLinkedEventId = '';
+      pickerInit([]);
+    }
+    closeModal();
+    renderTournamentModal();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  });
+}
+
+// カレンダー操作の直前に入力内容を保存しておく（再描画で消えないように）
+function tournamentModalSyncInputs(){
+  const titleEl = document.getElementById('tournament-title-input');
+  const descEl = document.getElementById('tournament-desc-input');
+  const resultEl = document.getElementById('tournament-result-input');
+  if(titleEl) tournamentModalTitle = titleEl.value;
+  if(descEl) tournamentModalDesc = descEl.value;
+  if(resultEl) tournamentModalResult = resultEl.value;
+}
+
+// 「既に登録されている予定とリンクさせるか」の選択。
+// リンクを選ぶと、未入力の大会名・開催日・概要は予定の内容で自動補完する(入力済みの場合はそのまま)。
+function tournamentModalSetLink(value){
+  tournamentModalSyncInputs();
+  tournamentModalLinkedEventId = value || '';
+  if(tournamentModalLinkedEventId){
+    const ev = (data.events||[]).find(e=>e.id===tournamentModalLinkedEventId);
+    if(ev){
+      if(!tournamentModalTitle.trim()) tournamentModalTitle = ev.title;
+      if(!tournamentModalDesc.trim() && ev.description) tournamentModalDesc = ev.description;
+      if(picker.dates.size===0 && (ev.dates||[]).length){
+        pickerInit((ev.dates||[]).slice().sort());
+      }
+    }
+  }
+  renderTournamentModal();
+}
+
+// リンク先に選べる予定の一覧(他の大会記録が既にリンク済みの予定は除外)
+function tournamentModalLinkCandidates(){
+  return (data.events||[]).filter(ev=>{
+    const linked = getTournamentLinkedToEvent(ev.id);
+    return !linked || linked.id === editingTournamentId;
+  }).slice().sort((a,b)=> ((b.dates||[])[0]||'').localeCompare((a.dates||[])[0]||''));
+}
+
+function tournamentModalChangeMonth(delta){ tournamentModalSyncInputs(); pickerChangeMonth(delta, 'renderTournamentModal'); }
+function tournamentModalToggleDate(d){ tournamentModalSyncInputs(); pickerToggleDate(d, 'renderTournamentModal'); }
+function tournamentModalClear(){ tournamentModalSyncInputs(); pickerClear('renderTournamentModal'); }
+function tournamentModalApplyRange(){ tournamentModalSyncInputs(); pickerApplyRange('tournament-range-start','tournament-range-end','renderTournamentModal'); }
+
+function renderTournamentModal(){
+  const isEditing = !!editingTournamentId;
+  const editingT = isEditing ? (data.tournaments||[]).find(t=>t.id===editingTournamentId) : null;
+  // 予定の結果入力から自動保存された記録は、リンク先が固定なので変更させない
+  const autoSynced = !!(editingT && editingT.sourceEventId);
+
+  const linkOptionsHtml = tournamentModalLinkCandidates().map(ev=>{
+    const d = (ev.dates||[]).slice().sort();
+    const dateLabel = d.length ? ` (${d.length>1 ? `${formatDayShort(d[0])}〜${formatDayShort(d[d.length-1])}` : formatDayShort(d[0])})` : '';
+    return `<option value="${escapeHtml(ev.id)}" ${tournamentModalLinkedEventId===ev.id?'selected':''}>${escapeHtml(ev.title)}${escapeHtml(dateLabel)}</option>`;
+  }).join('');
+
+  const linkHint = autoSynced
+    ? '予定の対戦結果から自動保存された記録のため、リンク先は変更できません。'
+    : 'リンクすると、カレンダーの予定の日付からこの大会記録の詳細を確認できるようになり、対戦結果入力の「大会名」一覧でも予定と大会記録が1つにまとまります(重複しません)。';
+
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <h2>🏆 大会記録を${isEditing?'編集':'追加'}</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <label>登録済みの予定とリンクしますか?</label>
+    <select id="tournament-link-select" onchange="tournamentModalSetLink(this.value)" ${autoSynced?'disabled':''}>
+      <option value="" ${!tournamentModalLinkedEventId?'selected':''}>リンクしない</option>
+      ${linkOptionsHtml}
+    </select>
+    <div class="attend-toggle-hint">${linkHint}</div>
+
+    <label style="margin-top:12px">大会名<span class="req-mark">*</span></label>
+    <input type="text" id="tournament-title-input" placeholder="例:第3回 内部トーナメント" value="${escapeHtml(tournamentModalTitle)}">
+
+    <div class="date-section" id="tournament-date-section">
+      <label>開催日<span class="req-mark">*</span></label>
+      <div class="attend-toggle-hint">期間で範囲指定するか、カレンダーで個別の日にちをタップして選択してください</div>
+      <div class="date-mode-row">
+        <div class="row">
+          <div>
+            <label>開始日</label>
+            <input type="date" id="tournament-range-start">
+          </div>
+          <div>
+            <label>終了日</label>
+            <input type="date" id="tournament-range-end">
+          </div>
+        </div>
+        <button type="button" class="btn-small" onclick="tournamentModalApplyRange()">範囲を追加</button>
+      </div>
+      ${pickerCalendarHtml('tournamentModalToggleDate')}
+    </div>
+
+    <label>概要(任意)</label>
+    <textarea id="tournament-desc-input" placeholder="例:参加12名、シングルエリミネーション">${escapeHtml(tournamentModalDesc)}</textarea>
+
+    <label>結果(任意)</label>
+    <textarea id="tournament-result-input" placeholder="例:優勝 プライドチキン">${escapeHtml(tournamentModalResult)}</textarea>
+
+    <button class="primary" onclick="submitTournamentModal()">${isEditing?'更新する':'追加する'}</button>
+  `;
+}
+
+async function submitTournamentModal(){
+  const title = document.getElementById('tournament-title-input').value.trim();
+  const description = document.getElementById('tournament-desc-input').value.trim();
+  const result = document.getElementById('tournament-result-input').value.trim();
+  const dates = Array.from(picker.dates).sort();
+  const missing = [];
+  if(!title){ flagFieldError('tournament-title-input'); missing.push('大会名'); }
+  if(dates.length===0){ flagSectionError('tournament-date-section'); missing.push('開催日'); }
+  if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
+  const linkedEventId = tournamentModalLinkedEventId || null;
+  const linkedEvent = linkedEventId ? (data.events||[]).find(e=>e.id===linkedEventId) : null;
+  if(editingTournamentId){
+    const t = (data.tournaments||[]).find(t=>t.id===editingTournamentId);
+    if(t){
+      t.title = title;
+      t.description = description;
+      t.result = result;
+      t.dates = dates;
+      // 自動保存された記録(sourceEventId付き)のリンク先は変更しない
+      if(!t.sourceEventId) t.linkedEventId = linkedEventId;
+    }
+  } else {
+    const newTournamentId = genId();
+    data.tournaments.push({id: newTournamentId, title, description, result, dates, linkedEventId});
+    const detailTag = description ? '(詳細あり)' : '';
+    const dateText = dates.map(d=>formatDayShort(d)).join('、');
+    const linkTag = linkedEvent ? `　🔗 予定「${linkedEvent.title}」とリンク` : '';
+    pushAnnouncement(`🏆「${title}」${detailTag}が大会情報に登録されました　🗓 ${dateText}${linkTag}`, false, {id: newTournamentId, type: 'tournament'});
+  }
+  tournamentModalTitle = '';
+  tournamentModalDesc = '';
+  tournamentModalResult = '';
+  tournamentModalLinkedEventId = '';
+  const wasEditing = !!editingTournamentId;
+  editingTournamentId = null;
+  await saveData();
+  closeModal();
+  renderSchedule();
+  showToast(wasEditing ? '大会記録を更新しました' : '大会記録を追加しました');
+}
+
+
+// このページの再描画エントリポイント(Firebaseからの更新反映・初期表示で使用)
+function renderCurrentPage(){
+  renderSchedule();
+}
+
+(async function(){
+  document.getElementById('view-schedule').innerHTML = '<div class="empty">読み込み中...</div>';
+  await initPage();
+  // 他ページ(メンバー/マイページ)から大会名バッジ経由で遷移してきた場合、該当日を開く
+  const params = new URLSearchParams(location.search);
+  const openDate = params.get('openDate');
+  if(openDate){
+    openDayModal(openDate);
+    history.replaceState(null, '', location.pathname);
+  }
+})();
