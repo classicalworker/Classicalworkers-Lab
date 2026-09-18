@@ -602,7 +602,18 @@ function buildEventSelectOptions(){
   return opts;
 }
 
-// 大会名バッジを押したらお知らせタブの該当の予定・大会記録の詳細を開く
+// カレンダーのマス目に出すラベル用。予定と、それにリンクした大会記録が同じ日にある場合、
+// 見た目上は1件にまとめる(中身の詳細は日付タップ後のモーダルで両方見られる)。
+function dedupeCalendarLabels(items){
+  return items.filter(item=>{
+    if(item.itemType!=='tournament') return true;
+    const linkedId = getTournamentLinkedEventId(item);
+    // リンク先の予定が同じ日のラベル一覧に含まれる場合は、大会記録側のラベルは出さない
+    return !(linkedId && items.some(i=>i.itemType==='event' && i.id===linkedId));
+  });
+}
+
+
 function jumpToEvent(id, type){
   if(!id || !type) return;
   let dateStr = null;

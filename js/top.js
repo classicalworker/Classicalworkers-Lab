@@ -359,7 +359,7 @@ function topMiniCalendarHtml(){
     if(d===null) return `<div class="mini-cal-cell empty"></div>`;
     const col = i % 7;
     const dateStr = `${year}-${pad2(month+1)}-${pad2(d)}`;
-    const evs = eventsByDate[dateStr] || [];
+    const evs = dedupeCalendarLabels(eventsByDate[dateStr] || []);
     const has = evs.length > 0;
     const isToday = dateStr === todayStr;
     const clickAttr = has ? ` onclick="location.href='schedule.html?openDate=${dateStr}'"` : '';

@@ -24,6 +24,8 @@ function getEventsByDate(){
   });
   (data.tournaments||[]).forEach(t=>{
     // リンクしている予定がある場合は、その予定の日程にも大会記録を表示する
+    // (日付詳細モーダルでは予定カードと大会記録カードの両方を見せたいのでここでは重複除去しない。
+    //  カレンダーのラベル表示側 dedupeCalendarLabels() で見た目の重複だけをまとめる)
     getTournamentDisplayDates(t).forEach(d=>{
       if(!map[d]) map[d] = [];
       map[d].push(Object.assign({itemType:'tournament'}, t));
@@ -66,7 +68,7 @@ function renderCalendarMonth(){
     if(d===null) return `<div class="cal-cell empty"></div>`;
     const col = i % 7;
     const dateStr = `${year}-${pad2(month+1)}-${pad2(d)}`;
-    const evs = eventsByDate[dateStr] || [];
+    const evs = dedupeCalendarLabels(eventsByDate[dateStr] || []);
     const isToday = dateStr === todayStr;
     const shown = evs.slice(0,2).map(ev=>`<div class="cal-event-label" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>`).join('');
     const more = evs.length>2 ? `<div class="cal-event-more">+${evs.length-2}件</div>` : '';
