@@ -146,6 +146,8 @@ function normalizeData(data){
   if (data.tournaments) {
     data.tournaments.forEach(t => {
       if (!Array.isArray(t.dates)) t.dates = [];
+      // 登録済みの予定と手動でリンクさせた場合の予定ID(未リンクはnull)
+      if (t.linkedEventId === undefined) t.linkedEventId = null;
     });
   } else {
     data.tournaments = [];
@@ -543,6 +545,61 @@ function showMatchNotifications(name, p){
   `);
   p.notifications = [];
   saveData();
+}
+
+// ---- 大会記録(tournaments)と予定(events)のリンク ----
+// linkedEventId : 大会記録の登録/編集時に管理者が手動でリンクさせた予定のID
+// sourceEventId : 予定の対戦結果入力から自動保存された大会記録の元になった予定のID
+// どちらも「その大会記録は特定の予定と同じもの」という意味なので、まとめて扱う。
+
+// リンク先の予定IDを返す(未リンク、または予定が削除済みならnull)
+function getTournamentLinkedEventId(t){
+  if(!t) return null;
+  const id = t.linkedEventId || t.sourceEventId || null;
+  if(!id) return null;
+  return (data.events||[]).some(e=>e.id===id) ? id : null;
+}
+
+// リンク先の予定オブジェクトを返す(未リンクならnull)
+function getLinkedEventForTournament(t){
+  const id = getTournamentLinkedEventId(t);
+  return id ? (data.events||[]).find(e=>e.id===id) : null;
+}
+
+// ある予定にリンクされている大会記録を返す(なければnull)
+function getTournamentLinkedToEvent(eventId){
+  if(!eventId) return null;
+  return (data.tournaments||[]).find(t=>getTournamentLinkedEventId(t)===eventId) || null;
+}
+
+// カレンダーに出す日付。リンクしている場合は予定の日程も含めるので、
+// 予定の日をタップすれば大会記録の詳細も確認できる。
+function getTournamentDisplayDates(t){
+  const set = new Set(t.dates||[]);
+  const ev = getLinkedEventForTournament(t);
+  if(ev) (ev.dates||[]).forEach(d=>set.add(d));
+  return Array.from(set).sort();
+}
+
+// 対戦結果入力の「大会名」選択肢を組み立てる。
+// リンク済みの大会記録は予定側の選択肢にまとめ、予定登録分と過去登録分が重複しないようにする。
+function buildEventSelectOptions(){
+  const opts = [];
+  (data.events||[]).forEach(ev=>{
+    const t = getTournamentLinkedToEvent(ev.id);
+    let label = ev.title;
+    if(t){
+      label = (t.title && t.title !== ev.title) ? `${ev.title}(大会記録:${t.title})` : ev.title;
+      label = '🔗 ' + label;
+    }
+    opts.push({ value: 'event:' + ev.id, label });
+  });
+  (data.tournaments||[]).forEach(t=>{
+    // リンク済みの大会記録は、上で予定側にまとめているのでここでは出さない
+    if(getTournamentLinkedEventId(t)) return;
+    opts.push({ value: 'tournament:' + t.id, label: t.title });
+  });
+  return opts;
 }
 
 // 大会名バッジを押したらお知らせタブの該当の予定・大会記録の詳細を開く

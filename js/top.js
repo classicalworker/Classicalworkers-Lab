@@ -167,7 +167,8 @@ function topGetEventsByDate(){
     (ev.dates||[]).forEach(d=>{ (map[d] = map[d] || []).push(ev); });
   });
   (data.tournaments||[]).forEach(t=>{
-    (t.dates||[]).forEach(d=>{ (map[d] = map[d] || []).push(t); });
+    // リンクしている予定がある場合は、その予定の日程にも表示する
+    getTournamentDisplayDates(t).forEach(d=>{ (map[d] = map[d] || []).push(t); });
   });
   return map;
 }

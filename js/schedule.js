@@ -23,7 +23,8 @@ function getEventsByDate(){
     });
   });
   (data.tournaments||[]).forEach(t=>{
-    (t.dates||[]).forEach(d=>{
+    // リンクしている予定がある場合は、その予定の日程にも大会記録を表示する
+    getTournamentDisplayDates(t).forEach(d=>{
       if(!map[d]) map[d] = [];
       map[d].push(Object.assign({itemType:'tournament'}, t));
     });
@@ -259,9 +260,13 @@ function tournamentCardHtml(t){
         ? `${dates[0]} 〜 ${dates[dates.length-1]}(${dates.length}日間)`
         : dates.join('・'))
     : (dates[0] || '日付未設定');
-  const syncedBadge = t.sourceEventId
-    ? `<span class="tournament-badge" onclick="jumpToEvent('${escapeHtml(t.sourceEventId)}','event')">🔗 予定の結果から自動保存</span>`
-    : '';
+  const linkedEv = getLinkedEventForTournament(t);
+  let syncedBadge = '';
+  if(linkedEv && t.sourceEventId){
+    syncedBadge = `<span class="tournament-badge" onclick="jumpToEvent('${escapeHtml(linkedEv.id)}','event')">🔗 予定の結果から自動保存</span>`;
+  } else if(linkedEv){
+    syncedBadge = `<span class="tournament-badge" onclick="jumpToEvent('${escapeHtml(linkedEv.id)}','event')">🔗 予定「${escapeHtml(linkedEv.title)}」とリンク中</span>`;
+  }
   return `
     <div class="tournament-card">
       <div class="tournament-title">${escapeHtml(t.title)} ${syncedBadge}</div>
@@ -334,6 +339,8 @@ function deleteEvent(id){
       return;
     }
     data.events = data.events.filter(e=>e.id!==id);
+    // 削除された予定にリンクしていた大会記録は、リンクだけ解除して残す
+    (data.tournaments||[]).forEach(t=>{ if(t.linkedEventId===id) t.linkedEventId = null; });
     editingEventId = null;
     await saveData();
     closeModal();
@@ -935,6 +942,7 @@ async function submitEventModal(){
 let tournamentModalTitle = '';
 let tournamentModalDesc = '';
 let tournamentModalResult = '';
+let tournamentModalLinkedEventId = '';
 let editingTournamentId = null;
 
 function openTournamentModal(id){
@@ -946,11 +954,13 @@ function openTournamentModal(id){
       tournamentModalTitle = t ? t.title : '';
       tournamentModalDesc = t ? (t.description||'') : '';
       tournamentModalResult = t ? (t.result||'') : '';
+      tournamentModalLinkedEventId = t ? (getTournamentLinkedEventId(t) || '') : '';
       pickerInit(t ? t.dates : []);
     } else {
       tournamentModalTitle = '';
       tournamentModalDesc = '';
       tournamentModalResult = '';
+      tournamentModalLinkedEventId = '';
       pickerInit([]);
     }
     closeModal();
@@ -969,6 +979,32 @@ function tournamentModalSyncInputs(){
   if(resultEl) tournamentModalResult = resultEl.value;
 }
 
+// 「既に登録されている予定とリンクさせるか」の選択。
+// リンクを選ぶと、未入力の大会名・開催日・概要は予定の内容で自動補完する(入力済みの場合はそのまま)。
+function tournamentModalSetLink(value){
+  tournamentModalSyncInputs();
+  tournamentModalLinkedEventId = value || '';
+  if(tournamentModalLinkedEventId){
+    const ev = (data.events||[]).find(e=>e.id===tournamentModalLinkedEventId);
+    if(ev){
+      if(!tournamentModalTitle.trim()) tournamentModalTitle = ev.title;
+      if(!tournamentModalDesc.trim() && ev.description) tournamentModalDesc = ev.description;
+      if(picker.dates.size===0 && (ev.dates||[]).length){
+        pickerInit((ev.dates||[]).slice().sort());
+      }
+    }
+  }
+  renderTournamentModal();
+}
+
+// リンク先に選べる予定の一覧(他の大会記録が既にリンク済みの予定は除外)
+function tournamentModalLinkCandidates(){
+  return (data.events||[]).filter(ev=>{
+    const linked = getTournamentLinkedToEvent(ev.id);
+    return !linked || linked.id === editingTournamentId;
+  }).slice().sort((a,b)=> ((b.dates||[])[0]||'').localeCompare((a.dates||[])[0]||''));
+}
+
 function tournamentModalChangeMonth(delta){ tournamentModalSyncInputs(); pickerChangeMonth(delta, 'renderTournamentModal'); }
 function tournamentModalToggleDate(d){ tournamentModalSyncInputs(); pickerToggleDate(d, 'renderTournamentModal'); }
 function tournamentModalClear(){ tournamentModalSyncInputs(); pickerClear('renderTournamentModal'); }
@@ -976,12 +1012,33 @@ function tournamentModalApplyRange(){ tournamentModalSyncInputs(); pickerApplyRa
 
 function renderTournamentModal(){
   const isEditing = !!editingTournamentId;
+  const editingT = isEditing ? (data.tournaments||[]).find(t=>t.id===editingTournamentId) : null;
+  // 予定の結果入力から自動保存された記録は、リンク先が固定なので変更させない
+  const autoSynced = !!(editingT && editingT.sourceEventId);
+
+  const linkOptionsHtml = tournamentModalLinkCandidates().map(ev=>{
+    const d = (ev.dates||[]).slice().sort();
+    const dateLabel = d.length ? ` (${d.length>1 ? `${formatDayShort(d[0])}〜${formatDayShort(d[d.length-1])}` : formatDayShort(d[0])})` : '';
+    return `<option value="${escapeHtml(ev.id)}" ${tournamentModalLinkedEventId===ev.id?'selected':''}>${escapeHtml(ev.title)}${escapeHtml(dateLabel)}</option>`;
+  }).join('');
+
+  const linkHint = autoSynced
+    ? '予定の対戦結果から自動保存された記録のため、リンク先は変更できません。'
+    : 'リンクすると、カレンダーの予定の日付からこの大会記録の詳細を確認できるようになり、対戦結果入力の「大会名」一覧でも予定と大会記録が1つにまとまります(重複しません)。';
+
   document.getElementById('modal-box').innerHTML = `
     <div class="modal-head">
       <h2>🏆 大会記録を${isEditing?'編集':'追加'}</h2>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
-    <label>大会名<span class="req-mark">*</span></label>
+    <label>登録済みの予定とリンクしますか?</label>
+    <select id="tournament-link-select" onchange="tournamentModalSetLink(this.value)" ${autoSynced?'disabled':''}>
+      <option value="" ${!tournamentModalLinkedEventId?'selected':''}>リンクしない</option>
+      ${linkOptionsHtml}
+    </select>
+    <div class="attend-toggle-hint">${linkHint}</div>
+
+    <label style="margin-top:12px">大会名<span class="req-mark">*</span></label>
     <input type="text" id="tournament-title-input" placeholder="例:第3回 内部トーナメント" value="${escapeHtml(tournamentModalTitle)}">
 
     <div class="date-section" id="tournament-date-section">
@@ -1022,6 +1079,8 @@ async function submitTournamentModal(){
   if(!title){ flagFieldError('tournament-title-input'); missing.push('大会名'); }
   if(dates.length===0){ flagSectionError('tournament-date-section'); missing.push('開催日'); }
   if(missing.length){ showToast(`${missing.join('・')}を入力してください`); return; }
+  const linkedEventId = tournamentModalLinkedEventId || null;
+  const linkedEvent = linkedEventId ? (data.events||[]).find(e=>e.id===linkedEventId) : null;
   if(editingTournamentId){
     const t = (data.tournaments||[]).find(t=>t.id===editingTournamentId);
     if(t){
@@ -1029,17 +1088,21 @@ async function submitTournamentModal(){
       t.description = description;
       t.result = result;
       t.dates = dates;
+      // 自動保存された記録(sourceEventId付き)のリンク先は変更しない
+      if(!t.sourceEventId) t.linkedEventId = linkedEventId;
     }
   } else {
     const newTournamentId = genId();
-    data.tournaments.push({id: newTournamentId, title, description, result, dates});
+    data.tournaments.push({id: newTournamentId, title, description, result, dates, linkedEventId});
     const detailTag = description ? '(詳細あり)' : '';
     const dateText = dates.map(d=>formatDayShort(d)).join('、');
-    pushAnnouncement(`🏆「${title}」${detailTag}が大会情報に登録されました　🗓 ${dateText}`, false, {id: newTournamentId, type: 'tournament'});
+    const linkTag = linkedEvent ? `　🔗 予定「${linkedEvent.title}」とリンク` : '';
+    pushAnnouncement(`🏆「${title}」${detailTag}が大会情報に登録されました　🗓 ${dateText}${linkTag}`, false, {id: newTournamentId, type: 'tournament'});
   }
   tournamentModalTitle = '';
   tournamentModalDesc = '';
   tournamentModalResult = '';
+  tournamentModalLinkedEventId = '';
   const wasEditing = !!editingTournamentId;
   editingTournamentId = null;
   await saveData();

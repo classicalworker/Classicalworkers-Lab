@@ -32,14 +32,10 @@ function renderMyPageWithPlayer(){
   const p = data.players[currentPlayer];
   const s = computeStats(p);
 
-  const eventOptions = [
-    ...(data.events||[]).map(ev => 
-      `<option value="event:${escapeHtml(ev.id)}" ${selectedEventId===('event:'+ev.id)?'selected':''}>${escapeHtml(ev.title)}</option>`
-    ),
-    ...(data.tournaments||[]).map(t => 
-      `<option value="tournament:${escapeHtml(t.id)}" ${selectedEventId===('tournament:'+t.id)?'selected':''}>${escapeHtml(t.title)}</option>`
-    )
-  ].join('');
+  // 予定とリンク済みの大会記録は1つにまとめて表示する(重複防止)
+  const eventOptions = buildEventSelectOptions().map(o =>
+    `<option value="${escapeHtml(o.value)}" ${selectedEventId===o.value?'selected':''}>${escapeHtml(o.label)}</option>`
+  ).join('');
 
   // 対戦相手入力欄（自由入力＋既存プレイヤー選択）
   const existingPlayers = names.filter(n=>n!==currentPlayer);
@@ -161,7 +157,7 @@ function renderMyPageWithPlayer(){
       <div id="new-event-input-box" style="display:${selectedEventId==='__new__'?'block':'none'};margin-top:6px;">
         <input type="text" id="new-event-name" placeholder="大会名を入力" style="width:100%;" value="${escapeHtml(newEventNameInput)}" oninput="newEventNameInput=this.value">
       </div>
-      <div class="attend-toggle-hint">予定タブで登録した予定・大会記録を選択すると、その大会と結果が連携されます。大会に紐付かない野試合の場合は「野試合」を選択してください。</div>
+      <div class="attend-toggle-hint">予定タブで登録した予定・大会記録を選択すると、その大会と結果が連携されます。🔗 が付いた項目は、予定と大会記録がリンク済みでまとめて表示されています。大会に紐付かない野試合の場合は「野試合」を選択してください。</div>
 
       <label style="margin-top:12px">対戦相手（入力または選択）</label>
       <div style="display:flex;gap:8px;align-items:center;">
