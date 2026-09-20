@@ -1,3 +1,6 @@
+let mypageHistoryExpanded = false;
+const MYPAGE_HISTORY_PAGE_SIZE = 5;
+
 function renderMyPage(){
   const el = document.getElementById('view-mypage');
 
@@ -9,6 +12,7 @@ function renderMyPage(){
   selectedEventId = '';
   newEventNameInput = '';
   editingMatchIndex = null;
+  mypageHistoryExpanded = false;
 
   el.innerHTML = `
     <div class="card">
@@ -444,13 +448,19 @@ function renderGoalList(p){
 }
 
 // 編集可能な履歴表示（インライン編集）
+// 直近5戦のみ表示し、「さらに履歴を表示する」ボタンでそれ以前の履歴も表示する。
+// 編集・削除は元の配列インデックス(idx)を基準に行うため、新しい順に並べ替えた後も
+// 各対戦に元のインデックスを保持させておく。
 function renderHistoryEditable(p){
   const matches = p.matches || [];
   if(matches.length===0) return '<div class="empty">まだ記録がありません</div>';
 
   const names = Object.keys(data.players);
 
-  return matches.map((m, idx) => {
+  const ordered = matches.map((m, idx) => ({m, idx})).reverse();
+  const visible = mypageHistoryExpanded ? ordered : ordered.slice(0, MYPAGE_HISTORY_PAGE_SIZE);
+
+  const itemsHtml = visible.map(({m, idx}) => {
     const isEditing = (editingMatchIndex === idx);
     const eventStr = m.eventName || '';
     const scoreParts = m.score ? m.score.split('-') : ['',''];
@@ -500,6 +510,18 @@ function renderHistoryEditable(p){
         </div>
       </div>`;
   }).join('');
+
+  const moreBtnHtml = (!mypageHistoryExpanded && ordered.length > MYPAGE_HISTORY_PAGE_SIZE)
+    ? `<button class="add-open-btn" onclick="toggleMypageHistory()">さらに履歴を表示する(残り${ordered.length - MYPAGE_HISTORY_PAGE_SIZE}件)</button>`
+    : '';
+
+  return itemsHtml + moreBtnHtml;
+}
+
+// 「さらに履歴を表示する」ボタン: マイページの対戦履歴を全件表示に切り替える
+function toggleMypageHistory(){
+  mypageHistoryExpanded = true;
+  renderMyPageWithPlayer();
 }
 
 function startMatchEdit(idx){

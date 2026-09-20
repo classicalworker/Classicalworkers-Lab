@@ -1,6 +1,10 @@
+let memberHistoryExpanded = false;
+const MEMBER_HISTORY_PAGE_SIZE = 5;
+
 function renderMembers(){
   const el = document.getElementById('view-members');
   selectedMember = null;
+  memberHistoryExpanded = false;
   
   const names = Object.keys(data.players).slice().sort((a,b)=>a.localeCompare(b,'ja'));
   if(names.length===0){
@@ -57,9 +61,10 @@ function viewMember(name){
     ? goals.map(g=>`<div class="history-item"><span style="${g.done?'color:var(--win);text-decoration:line-through':''}">${g.done?'✅':'▫️'} ${escapeHtml(g.text)}</span></div>`).join('')
     : '<div class="empty" style="padding:10px 0">ミッションはまだありません</div>';
 
-  const matches = (p.matches||[]).slice().reverse().slice(0,10);
-  const historyHtml = matches.length>0
-    ? matches.map(m=>{
+  const allMatches = (p.matches||[]).slice().reverse();
+  const visibleMatches = memberHistoryExpanded ? allMatches : allMatches.slice(0, MEMBER_HISTORY_PAGE_SIZE);
+  const historyHtml = visibleMatches.length>0
+    ? visibleMatches.map(m=>{
         const scoreStr = m.score ? `(${escapeHtml(m.score)})` : '';
         const eventStr = m.eventName || '';
         // 大会名の表示を改善（勝敗に関わらず同じアイコン・色、リンクありは黄色、新規入力は灰色）
@@ -73,6 +78,7 @@ function viewMember(name){
             <div class="top">
               <span class="names">${escapeHtml(name)} vs ${escapeHtml(m.opponent)}</span>
               ${eventBadge}
+              ${m.opponentMR ? `<span class="pill" style="background:rgba(232,178,61,.12);color:var(--gold);">相手MR ${escapeHtml(m.opponentMR)}</span>` : ''}
             </div>
             ${scoreStr ? `<div class="score-display"><span class="score-me">${scoreStr.split('-')[0]}</span><span class="vs">vs</span><span class="score-opp">${scoreStr.split('-')[1]||''}</span></div>` : ''}
           </div>
@@ -80,6 +86,9 @@ function viewMember(name){
         </div>`;
       }).join('')
     : '<div class="empty">まだ記録がありません</div>';
+  const historyMoreHtml = (!memberHistoryExpanded && allMatches.length > MEMBER_HISTORY_PAGE_SIZE)
+    ? `<button class="add-open-btn" onclick="toggleMemberHistory('${name.replace(/'/g,"\\'")}')">さらに履歴を表示する(残り${allMatches.length - MEMBER_HISTORY_PAGE_SIZE}件)</button>`
+    : '';
 
   const mrColor = p.currentMR ? getMRColor(parseInt(p.currentMR)||0) : 'var(--text-dim)';
   const deviceRowDetail = deviceChipsHtml(p);
@@ -123,10 +132,17 @@ function viewMember(name){
     <div class="card">
       <h2>直近の対戦履歴</h2>
       ${historyHtml}
+      ${historyMoreHtml}
     </div>`;
 
   // 未読の対戦通知があればポップアップで通知する
   showMatchNotifications(name, p);
+}
+
+// 「さらに履歴を表示する」ボタン: このメンバーの対戦履歴を全件表示に切り替える
+function toggleMemberHistory(name){
+  memberHistoryExpanded = true;
+  viewMember(name);
 }
 
 // 未読の対戦通知をポップアップで表示する（自分のマイページ／メンバー一覧からの閲覧の両方で使用）

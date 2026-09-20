@@ -164,11 +164,13 @@ function topOnAirCardBodyHtml(){
 function topGetEventsByDate(){
   const map = {};
   (data.events||[]).forEach(ev=>{
-    (ev.dates||[]).forEach(d=>{ (map[d] = map[d] || []).push(ev); });
+    (ev.dates||[]).forEach(d=>{ (map[d] = map[d] || []).push(Object.assign({itemType:'event'}, ev)); });
   });
   (data.tournaments||[]).forEach(t=>{
     // リンクしている予定がある場合は、その予定の日程にも表示する
-    getTournamentDisplayDates(t).forEach(d=>{ (map[d] = map[d] || []).push(t); });
+    // (予定の結果入力から自動保存された大会記録は、同じ予定・同じ日と重複しやすいため、
+    //  itemTypeを付けてdedupeCalendarLabels()で見た目の重複をまとめられるようにする)
+    getTournamentDisplayDates(t).forEach(d=>{ (map[d] = map[d] || []).push(Object.assign({itemType:'tournament'}, t)); });
   });
   return map;
 }
