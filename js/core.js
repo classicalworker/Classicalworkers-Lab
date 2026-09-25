@@ -60,7 +60,9 @@ function defaultData(){
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
   });
-  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[]};
+  // interTeamBaseCount: タグ管理(予定の「対抗戦」/「身内イベント」区分)を始める前に、
+  // すでに開催済みだった対抗戦の数。勝率ランキングの規定試合数の計算に使う基礎値。
+  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[], interTeamBaseCount: 2};
 }
 
 // データ補正用の共通関数
@@ -137,9 +139,17 @@ function normalizeData(data){
       if (!ev.attendance) ev.attendance = {};
       // 管理者が入力した対戦結果(出席メンバー同士に限定)を予定ごとに保持する
       if (!Array.isArray(ev.results)) ev.results = [];
+      // 予定の種類: 'interteam'(対抗戦) / 'internal'(身内イベント)。
+      // 未設定・不正値は「身内イベント」扱いにし、規定試合数の集計に誤って含めない。
+      if (ev.category !== 'interteam' && ev.category !== 'internal') ev.category = 'internal';
     });
   } else {
     data.events = [];
+  }
+
+  // interTeamBaseCount(規定試合数の基礎値)の補正
+  if (data.interTeamBaseCount === undefined || data.interTeamBaseCount === null || isNaN(Number(data.interTeamBaseCount))) {
+    data.interTeamBaseCount = 2;
   }
   
   // tournamentsの補正
@@ -358,6 +368,53 @@ function computeStats(p){
   const doneCount = goals.filter(g=>g.done).length;
   const goalAchievement = goals.length>0 ? (doneCount/goals.length*100) : null;
   return {total, wins, winRate, goalAchievement, goalDone: doneCount, goalTotal: goals.length};
+}
+
+// ===== 規定試合数(勝率ランキングの足切りライン)まわりの計算 =====
+// 「対抗戦」タグが付いた予定のうち、実際に対戦結果が記録されているものだけを
+// 「開催された対抗戦」として数える(身内イベントはここでは一切カウントしない)。
+function getInterTeamHeldEventIds(){
+  const ids = new Set();
+  (data.events||[]).forEach(ev=>{
+    if(ev.category === 'interteam' && (ev.results||[]).length > 0) ids.add(ev.id);
+  });
+  // 管理者による結果入力(ev.results)を経由しないマイページからの自己申告分もあるため、
+  // 各メンバーの対戦履歴側からも「対抗戦」タグの予定に紐づく記録を拾う
+  Object.values(data.players||{}).forEach(p=>{
+    (p.matches||[]).forEach(m=>{
+      if(m.eventType === 'event' && m.eventId){
+        const ev = (data.events||[]).find(e=>e.id===m.eventId);
+        if(ev && ev.category === 'interteam') ids.add(ev.id);
+      }
+    });
+  });
+  return ids;
+}
+
+// 開催された対抗戦の総数(タグ管理を始める前にすでに開催済みだった分の基礎値を含む)
+function getInterTeamHeldCount(){
+  const base = Number(data.interTeamBaseCount) || 0;
+  return base + getInterTeamHeldEventIds().size;
+}
+
+// 勝率ランキングの規定試合数 = 開催された対抗戦数 × 50% + 1
+function getRequiredMatchCount(){
+  const held = getInterTeamHeldCount();
+  return Math.floor(held / 2) + 1;
+}
+
+// そのプレイヤーが「対抗戦」で対戦した数(身内イベントの結果・対抗戦以外の記録はカウントしない)
+function getPlayerInterTeamMatchCount(p){
+  return (p.matches||[]).filter(m=>{
+    if(m.eventType !== 'event' || !m.eventId) return false;
+    const ev = (data.events||[]).find(e=>e.id===m.eventId);
+    return ev && ev.category === 'interteam';
+  }).length;
+}
+
+// 規定試合数に到達しているかどうか
+function isPlayerRegulationMet(p){
+  return getPlayerInterTeamMatchCount(p) >= getRequiredMatchCount();
 }
 
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }

@@ -68,9 +68,45 @@ function adminDashboardHtml(){
 
     ${adminMemberManageHtml()}
     ${adminScheduleShortcutHtml()}
+    ${adminRegulationSettingsHtml()}
     ${adminMemberEditHtml()}
     ${adminAnnouncementsHtml()}
   `;
+}
+
+// ---- ②' 勝率ランキングの規定試合数の設定 ----
+function adminRegulationSettingsHtml(){
+  const base = Number(data.interTeamBaseCount) || 0;
+  const held = getInterTeamHeldCount();
+  const taggedCount = held - base;
+  const required = getRequiredMatchCount();
+  return `
+    <div class="card">
+      <h2>🎯 勝率ランキングの規定試合数</h2>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
+        規定試合数 ＝ 開催された対抗戦数 × 50% + 1。「予定」ページで種類を「🆚 対抗戦」にした予定に結果を記録すると、開催数が自動で増え、この規定試合数も自動で更新されます(身内イベントの結果はカウントされません)。<br>
+        タグ管理を始める前にすでに開催済みだった対抗戦の数は、下の基礎値として手動で設定してください。
+      </div>
+      <label>タグ管理開始前の対抗戦 開催済み数(基礎値)</label>
+      <div class="row">
+        <input type="number" id="admin-interteam-base" value="${base}" min="0" style="max-width:120px;">
+        <button class="primary" style="margin-top:0;width:auto;padding:10px 18px;" onclick="adminUpdateInterTeamBase()">更新</button>
+      </div>
+      <div style="font-size:13px;color:var(--text);margin-top:12px;line-height:1.8;">
+        現在の開催済み対抗戦数: <span class="top-card-highlight">${held}戦</span>(基礎値${base}戦 ＋ タグ付き予定${taggedCount}戦)<br>
+        現在の規定試合数: <span class="top-card-highlight">${required}試合</span>
+      </div>
+    </div>`;
+}
+
+async function adminUpdateInterTeamBase(){
+  const input = document.getElementById('admin-interteam-base');
+  const v = parseInt(input.value, 10);
+  if(isNaN(v) || v < 0){ showToast('0以上の数字を入力してください'); return; }
+  data.interTeamBaseCount = v;
+  await saveData();
+  renderAdmin();
+  showToast('更新しました');
 }
 
 // ---- ① メンバーの追加・削除 ----
