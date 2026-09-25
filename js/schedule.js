@@ -298,14 +298,25 @@ function tournamentCardHtml(t){
 function startEditEvent(id){
   requireAdminPin(()=>{
     editingEventId = id;
-    // 編集モードに入ったら詳細モーダルを閉じる
-    closeModal();
-    renderSchedule();
+    // カレンダーの日付詳細モーダルから開いた場合は、モーダルを閉じてしまうと編集フォームが
+    // どこにも表示されなくなる(予定一覧に無い過去日程などは特に)ため、モーダルは閉じずに
+    // 同じ日付モーダルの中身だけを編集フォームで再描画する
+    const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none';
+    const priorDay = document.getElementById('modal-box').dataset.dayModal;
+    if(wasDayModalOpen && priorDay){
+      openDayModal(priorDay);
+    } else {
+      closeModal();
+      renderSchedule();
+    }
   });
 }
 
 function cancelEventEdit(){
   editingEventId = null;
+  // 日付詳細モーダルの中で編集していた場合は、キャンセルでモーダルごと閉じる
+  const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none' && !!document.getElementById('modal-box').dataset.dayModal;
+  if(wasDayModalOpen) closeModal();
   renderSchedule();
 }
 
@@ -325,6 +336,9 @@ async function saveEventEdit(id){
   ev.attendanceDeadline = attendRequired && deadlineEl ? (deadlineEl.value || null) : null;
   editingEventId = null;
   await saveData();
+  // 日付詳細モーダルの中で編集していた場合は、保存後にモーダルごと閉じる
+  const wasDayModalOpen = document.getElementById('modal-overlay').style.display !== 'none' && !!document.getElementById('modal-box').dataset.dayModal;
+  if(wasDayModalOpen) closeModal();
   renderSchedule();
   showToast('更新しました');
 }
