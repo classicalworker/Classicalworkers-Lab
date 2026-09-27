@@ -3,13 +3,18 @@ function switchRankingSubTab(subTab){
   renderRanking();
 }
 
+function switchRankingRecordSubTab(subTab){
+  rankingRecordSubTab = subTab;
+  renderRanking();
+}
+
 function renderRanking(){
   const el = document.getElementById('view-ranking');
   const names = Object.keys(data.players);
 
   const subTabsHtml = `
     <div class="sub-tabs">
-      <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 勝率ランキング</div>
+      <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 対戦成績</div>
       <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
       <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>
     </div>
@@ -122,18 +127,44 @@ function renderRanking(){
     return;
   }
 
-  // 規定試合数(= 開催された対抗戦数 × 50% + 1)。対抗戦のみをカウントし、身内イベントの結果は含まない。
+  // ===== 対戦成績(旧・勝率ランキング) =====
+  // 対抗戦成績 / 身内イベント成績 / 総合成績 の3つに絞り込める。
+  // 規定試合数の計算式(開催された対抗戦数 × 50% + 1)はどの絞り込みでも共通で従来通り。
   const required = getRequiredMatchCount();
   const heldCount = getInterTeamHeldCount();
   const baseCount = Number(data.interTeamBaseCount) || 0;
+
+  const recordTabsHtml = `
+    <div class="sub-tabs" style="margin-top:-6px;">
+      <div class="sub-tab ${rankingRecordSubTab === 'interteam' ? 'active' : ''}" onclick="switchRankingRecordSubTab('interteam')">🆚 対抗戦成績</div>
+      <div class="sub-tab ${rankingRecordSubTab === 'internal' ? 'active' : ''}" onclick="switchRankingRecordSubTab('internal')">🏠 身内イベント成績</div>
+      <div class="sub-tab ${rankingRecordSubTab === 'all' ? 'active' : ''}" onclick="switchRankingRecordSubTab('all')">📋 総合成績</div>
+    </div>
+  `;
+
+  // 絞り込みモードごとに、集計対象カテゴリ・規定試合の分子カウント・表示ラベルを切り替える
+  let categories, tagLabel;
+  if(rankingRecordSubTab === 'internal'){
+    categories = ['internal'];
+    tagLabel = '身内イベントのみ';
+  } else if(rankingRecordSubTab === 'all'){
+    categories = ['interteam','internal']; // 総合成績は対抗戦・身内イベント両方のタグ付き対戦を集計する
+    tagLabel = '対抗戦+身内イベント';
+  } else {
+    categories = ['interteam'];
+    tagLabel = '対抗戦のみ';
+  }
 
   const withMatches = names.filter(n => (data.players[n].matches||[]).length>0);
   const withoutMatches = names.filter(n => (data.players[n].matches||[]).length===0);
 
   const withMatchesInfo = withMatches.map(n=>{
     const p = data.players[n];
-    const s = computeStats(p);
-    const interCount = getPlayerInterTeamMatchCount(p);
+    const s = computeStatsForCategory(p, categories);
+    let interCount;
+    if(rankingRecordSubTab === 'internal') interCount = getPlayerInternalMatchCount(p);
+    else if(rankingRecordSubTab === 'all') interCount = getPlayerInterTeamMatchCount(p) + getPlayerInternalMatchCount(p);
+    else interCount = getPlayerInterTeamMatchCount(p);
     return {name:n, s, interCount, reached: interCount >= required};
   });
 
@@ -152,18 +183,19 @@ function renderRanking(){
   const ordered = [...withMatchesInfo.map(x=>x.name), ...withoutMatches];
 
   if(ordered.length===0){
-    el.innerHTML = subTabsHtml + '<div class="empty">まだ参加者がいません。マイページから登録してください。</div>';
+    el.innerHTML = subTabsHtml + recordTabsHtml + '<div class="empty">まだ参加者がいません。マイページから登録してください。</div>';
     return;
   }
 
   let html = '';
   ordered.forEach((name, i)=>{
     const info = infoByName[name];
-    const s = info ? info.s : computeStats(data.players[name]);
+    const s = info ? info.s : {total:0, wins:0, winRate:0};
+    const goalStats = computeStats(data.players[name]);
     const interCount = info ? info.interCount : 0;
     const reached = info ? info.reached : false;
     const rankLabel = s.total>0 ? (i+1) : '–';
-    const goalText = s.goalAchievement!==null ? `${s.goalDone}/${s.goalTotal}` : '未設定';
+    const goalText = goalStats.goalAchievement!==null ? `${goalStats.goalDone}/${goalStats.goalTotal}` : '未設定';
     const regulationBadge = s.total>0
       ? (reached
           ? `<span class="pill" style="background:rgba(var(--win-rgb),.12);color:var(--win);">規定到達</span>`
@@ -189,7 +221,7 @@ function renderRanking(){
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;">
-            <span style="font-size:11px;color:var(--text-dim);">規定試合 ${required}試合中 ${interCount}試合(対抗戦のみ)</span>
+            <span style="font-size:11px;color:var(--text-dim);">規定試合 ${required}試合中 ${interCount}試合(${tagLabel})</span>
             ${regulationBadge}
           </div>
           ${memberMetaChipsHtml(data.players[name])}
@@ -197,10 +229,10 @@ function renderRanking(){
       </div>`;
   });
 
-  el.innerHTML = subTabsHtml + `
+  el.innerHTML = subTabsHtml + recordTabsHtml + `
     <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
       規定試合 <span style="font-weight:800;color:var(--gold);font-size:16px">${required}試合</span>
-      (開催された対抗戦 ${heldCount}戦 ×50%+1。基礎値${baseCount}戦を含む／身内イベントの結果は含みません)
+      (開催された対抗戦 ${heldCount}戦 ×50%+1。基礎値${baseCount}戦を含む／集計対象:${tagLabel})
     </div>
     ${html}
   `;

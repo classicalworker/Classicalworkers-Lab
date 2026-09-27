@@ -548,7 +548,7 @@ function topBattleRankingCardHtml(){
   return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
-// ---- ランキングカード: 勝率3位まで表示 ----
+// ---- ランキングカード: 対戦成績3位まで表示 ----
 
 function topRankingCardHtml(){
   const names = Object.keys(data.players);
@@ -647,7 +647,7 @@ function renderTop(){
 
       <div class="top-card top-card--ranking">
         <div class="top-card-head">
-          <div class="top-card-title">🏆 勝率ランキング</div>
+          <div class="top-card-title">🏆 対戦成績ランキング</div>
           <a class="top-link-btn" href="ranking.html">見る</a>
         </div>
         <div class="top-card-body">

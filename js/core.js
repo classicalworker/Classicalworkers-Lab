@@ -8,6 +8,8 @@ let currentPlayer = null;
 let pendingResult = null;
 let opponentName = '';
 let rankingSubTab = 'winrate';
+// 対戦成績タブ内の絞り込み: 'interteam'(対抗戦成績) / 'internal'(身内イベント成績) / 'all'(総合成績)
+let rankingRecordSubTab = 'interteam';
 let editingEventId = null;
 
 // スコアと大会名保持用
@@ -412,6 +414,35 @@ function getPlayerInterTeamMatchCount(p){
   }).length;
 }
 
+// そのプレイヤーが「身内イベント」で対戦した数(対抗戦の結果はカウントしない)
+function getPlayerInternalMatchCount(p){
+  return (p.matches||[]).filter(m=>{
+    if(m.eventType !== 'event' || !m.eventId) return false;
+    const ev = (data.events||[]).find(e=>e.id===m.eventId);
+    return ev && ev.category === 'internal';
+  }).length;
+}
+
+// 対戦成績ランキング用: カテゴリを指定して対戦数・勝ち数・勝率を集計する。
+// categories に配列(['interteam'] や ['internal']、両方まとめて ['interteam','internal'] など)を
+// 渡すと、その種類タグの予定に紐づく対戦だけに絞り込んで集計する。
+// categories が null/未指定の場合は、予定に紐づかないフリー入力や大会記録も含めた全対戦を集計する
+// (現在のランキング画面では使用していないが、汎用的に使えるよう残してある)。
+function computeStatsForCategory(p, categories){
+  const all = p.matches || [];
+  const matches = categories
+    ? all.filter(m=>{
+        if(m.eventType !== 'event' || !m.eventId) return false;
+        const ev = (data.events||[]).find(e=>e.id===m.eventId);
+        return ev && categories.includes(ev.category);
+      })
+    : all;
+  const total = matches.length;
+  const wins = matches.filter(m=>m.result==='win').length;
+  const winRate = total>0 ? (wins/total*100) : 0;
+  return {total, wins, winRate};
+}
+
 // 規定試合数に到達しているかどうか
 function isPlayerRegulationMet(p){
   return getPlayerInterTeamMatchCount(p) >= getRequiredMatchCount();
@@ -693,6 +724,7 @@ async function resetAll(){
   editingEventId = null;
   selectedMember = null;
   rankingSubTab = 'winrate';
+  rankingRecordSubTab = 'interteam';
   savedScoreMe = 0;
   savedScoreOpp = 0;
   opponentName = '';

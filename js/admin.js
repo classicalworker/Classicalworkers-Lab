@@ -74,7 +74,7 @@ function adminDashboardHtml(){
   `;
 }
 
-// ---- ②' 勝率ランキングの規定試合数の設定 ----
+// ---- ②' 対戦成績ランキングの規定試合数の設定 ----
 function adminRegulationSettingsHtml(){
   const base = Number(data.interTeamBaseCount) || 0;
   const held = getInterTeamHeldCount();
@@ -82,7 +82,7 @@ function adminRegulationSettingsHtml(){
   const required = getRequiredMatchCount();
   return `
     <div class="card">
-      <h2>🎯 勝率ランキングの規定試合数</h2>
+      <h2>🎯 対戦成績ランキングの規定試合数</h2>
       <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
         規定試合数 ＝ 開催された対抗戦数 × 50% + 1。「予定」ページで種類を「🆚 対抗戦」にした予定に結果を記録すると、開催数が自動で増え、この規定試合数も自動で更新されます(身内イベントの結果はカウントされません)。<br>
         タグ管理を始める前にすでに開催済みだった対抗戦の数は、下の基礎値として手動で設定してください。

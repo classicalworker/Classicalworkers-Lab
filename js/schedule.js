@@ -177,7 +177,7 @@ function eventCardHtml(ev, onlyDay){
               </select>
             </div>
           </div>
-          <div class="attend-toggle-hint">「対抗戦」は勝率ランキングの規定試合数の集計対象になります。身内イベントの結果は集計に含まれません。</div>
+          <div class="attend-toggle-hint">「対抗戦」は対戦成績ランキングの規定試合数の集計対象になります。身内イベントの結果は集計に含まれません。</div>
           <div>
             <label>詳細</label>
             <textarea id="edit-event-desc-${ev.id}">${escapeHtml(ev.description||'')}</textarea>
@@ -848,7 +848,7 @@ let eventModalTitle = '';
 let eventModalDesc = '';
 let eventModalDeadline = '';
 // 予定の種類: 'interteam'(対抗戦) / 'internal'(身内イベント)。
-// 勝率ランキングの規定試合数は「対抗戦」タグの予定だけを集計対象にするため、
+// 対戦成績ランキングの規定試合数は「対抗戦」タグの予定だけを集計対象にするため、
 // 誤って母数に含めないよう新規作成時は「身内イベント」をデフォルトにする。
 let eventModalCategory = 'internal';
 
@@ -925,7 +925,7 @@ function renderEventModal(){
       <div class="choice ${eventModalCategory==='interteam'?'win selected':''}" onclick="eventModalSetCategory('interteam')">🆚 対抗戦</div>
       <div class="choice ${eventModalCategory==='internal'?'loss selected':''}" onclick="eventModalSetCategory('internal')">🏠 身内イベント</div>
     </div>
-    <div class="attend-toggle-hint">「対抗戦」は勝率ランキングの規定試合数の集計対象になります。身内イベントの結果は集計に含まれません。</div>
+    <div class="attend-toggle-hint">「対抗戦」は対戦成績ランキングの規定試合数の集計対象になります。身内イベントの結果は集計に含まれません。</div>
 
     <label>出席確認</label>
     <div class="choice-group">
