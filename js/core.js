@@ -3,6 +3,9 @@ const database = firebase.database();
 const STORAGE_KEY = 'classical_worker_2026_data';
 const SEED_PLAYERS = ["にゃんたかたー","プライドチキン","キタロー","ウーロン茶","れんたん","うーろん","ちゃぶ台","シャミセン","なかじま","ゆび","kaz_bwc","こなつ","エインセル河本","せば","しみちん","けんじろう","SAJ","AKAZUKIN","田井中 良樹","こうへー","でみ。","甘えっさん","ラスペーシア","Anne","ののの","shinsei","ココノツ","KFC-11","かーず","横須賀ふたば","サクリ"];
 
+// 対戦成績ランキングで常に最下段に固定表示するメンバー(主催者など、競い合う対象ではなく参考記録として扱う)
+const RANKING_REFERENCE_ONLY_NAMES = ["キタロー"];
+
 let data = null;
 let currentPlayer = null;
 let pendingResult = null;
