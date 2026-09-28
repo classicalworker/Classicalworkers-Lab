@@ -46,7 +46,7 @@ function renderRanking(){
       const countBadge = valueDeltaBadgeHtml(p.previousCount, p.count, '戦');
       const rankBadge = rankDeltaBadgeHtml(p.previousRank, rankLabel);
       html += `
-        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
+        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}" onclick="goToMember('${p.name.replace(/'/g,"\\'")}')">
           <div class="rank-num-wrap">
             <div class="rank-num">${medal}</div>
             ${rankBadge}
@@ -98,7 +98,7 @@ function renderRanking(){
       const rankBadge = rankDeltaBadgeHtml(p.previousRank, rankLabel);
 
       html += `
-        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}">
+        <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}" onclick="goToMember('${p.name.replace(/'/g,"\\'")}')">
           <div class="rank-num-wrap">
             <div class="rank-num" style="color:${color}">${medal}</div>
             ${rankBadge}
@@ -129,10 +129,8 @@ function renderRanking(){
 
   // ===== 対戦成績(旧・勝率ランキング) =====
   // 対抗戦成績 / 身内イベント成績 / 総合成績 の3つに絞り込める。
-  // 規定試合数の計算式(開催された対抗戦数 × 50% + 1)はどの絞り込みでも共通で従来通り。
+  // 規定試合数の計算式(開催された対抗戦数 × 50% + 1)はどの絞り込みでも共通で従来通り(表示はしない)。
   const required = getRequiredMatchCount();
-  const heldCount = getInterTeamHeldCount();
-  const baseCount = Number(data.interTeamBaseCount) || 0;
 
   const recordTabsHtml = `
     <div class="sub-tabs" style="margin-top:-6px;">
@@ -154,6 +152,8 @@ function renderRanking(){
     categories = ['interteam'];
     tagLabel = '対抗戦のみ';
   }
+  // 総合成績では「直近の対戦結果」は表示せず、代わりに参加率を表示する
+  const showLatestMatch = rankingRecordSubTab !== 'all';
 
   const withMatches = names.filter(n => (data.players[n].matches||[]).length>0);
   const withoutMatches = names.filter(n => (data.players[n].matches||[]).length===0);
@@ -191,18 +191,39 @@ function renderRanking(){
   ordered.forEach((name, i)=>{
     const info = infoByName[name];
     const s = info ? info.s : {total:0, wins:0, winRate:0};
-    const goalStats = computeStats(data.players[name]);
     const interCount = info ? info.interCount : 0;
     const reached = info ? info.reached : false;
     const rankLabel = s.total>0 ? (i+1) : '–';
-    const goalText = goalStats.goalAchievement!==null ? `${goalStats.goalDone}/${goalStats.goalTotal}` : '未設定';
     const regulationBadge = s.total>0
       ? (reached
           ? `<span class="pill" style="background:rgba(var(--win-rgb),.12);color:var(--win);">規定到達</span>`
           : `<span class="pill" style="background:rgba(var(--loss-rgb),.1);color:var(--loss);">規定未到達</span>`)
       : '';
+
+    // 2つ目のボックス: 対抗戦/身内イベント成績では「直近の対戦結果」、総合成績では「参加率」を表示
+    let secondBoxHtml;
+    if(showLatestMatch){
+      const latest = getPlayerLatestMatch(data.players[name], categories);
+      secondBoxHtml = `
+        <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">直近の対戦結果</div>
+          ${latest
+            ? `<div style="font-size:16px;font-weight:800;color:${latest.result==='win'?'var(--win)':'var(--loss)'};">${latest.result==='win'?'勝ち':'負け'}</div>
+               <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">vs ${escapeHtml(latest.opponent||'')}${latest.score?`(${escapeHtml(latest.score)})`:''}</div>`
+            : `<div style="font-size:14px;font-weight:700;color:var(--text-dim);margin-top:4px;">記録なし</div>`
+          }
+        </div>`;
+    } else {
+      const participation = getPlayerParticipationRate(name, categories);
+      secondBoxHtml = `
+        <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">参加率</div>
+          <div style="font-size:20px;font-weight:800;color:var(--goal);">${participation!==null ? participation.toFixed(0)+'%' : '—'}</div>
+        </div>`;
+    }
+
     html += `
-      <div class="rank-card ${i===0 && s.total>0 && reached ? 'r1':''}">
+      <div class="rank-card ${i===0 && s.total>0 && reached ? 'r1':''}" onclick="goToMember('${name.replace(/'/g,"\\'")}')">
         <div class="rank-num">${rankLabel}</div>
         ${data.players[name].icon ? `<img class="member-icon" src="${data.players[name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
         <div class="rank-body">
@@ -215,10 +236,7 @@ function renderRanking(){
               <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">勝率</div>
               <div style="font-size:20px;font-weight:800;color:var(--win);">${s.winRate.toFixed(0)}%</div>
             </div>
-            <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
-              <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">目標</div>
-              <div style="font-size:20px;font-weight:800;color:var(--goal);">${goalText}</div>
-            </div>
+            ${secondBoxHtml}
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;">
             <span style="font-size:11px;color:var(--text-dim);">規定試合 ${required}試合中 ${interCount}試合(${tagLabel})</span>
@@ -232,7 +250,7 @@ function renderRanking(){
   el.innerHTML = subTabsHtml + recordTabsHtml + `
     <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
       規定試合 <span style="font-weight:800;color:var(--gold);font-size:16px">${required}試合</span>
-      (開催された対抗戦 ${heldCount}戦 ×50%+1。基礎値${baseCount}戦を含む／集計対象:${tagLabel})
+      (集計対象:${tagLabel})
     </div>
     ${html}
   `;

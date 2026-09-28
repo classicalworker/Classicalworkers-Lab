@@ -448,6 +448,40 @@ function isPlayerRegulationMet(p){
   return getPlayerInterTeamMatchCount(p) >= getRequiredMatchCount();
 }
 
+// 指定カテゴリ(対抗戦/身内イベントなど)の予定に紐づく対戦のうち、最も新しいものを1件返す。
+// 該当する対戦が無ければnullを返す。
+function getPlayerLatestMatch(p, categories){
+  const matches = (p.matches||[]).filter(m=>{
+    if(m.eventType !== 'event' || !m.eventId) return false;
+    const ev = (data.events||[]).find(e=>e.id===m.eventId);
+    return ev && categories.includes(ev.category);
+  });
+  if(matches.length===0) return null;
+  return matches.reduce((latest, m) => (!latest || new Date(m.date) > new Date(latest.date)) ? m : latest, null);
+}
+
+// 指定カテゴリの予定(出欠確認ありのもの)について、開催日数を分母、実際に「出席」と
+// 回答した日数を分子にして参加率(%)を計算する。対象の予定が1件も無ければnullを返す。
+function getPlayerParticipationRate(name, categories){
+  let total = 0, yes = 0;
+  (data.events||[]).forEach(ev=>{
+    if(!ev.attendanceRequired) return;
+    if(!categories.includes(ev.category)) return;
+    (ev.dates||[]).forEach(day=>{
+      total++;
+      const status = ev.attendance && ev.attendance[day] && ev.attendance[day][name];
+      if(status === 'yes') yes++;
+    });
+  });
+  if(total === 0) return null;
+  return (yes/total) * 100;
+}
+
+// ランキングなど一覧画面から、指定したメンバーのメンバー詳細画面へ移動する
+function goToMember(name){
+  location.href = 'members.html?name=' + encodeURIComponent(name);
+}
+
 function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 // ===== TOP画面の「お知らせ」 =====

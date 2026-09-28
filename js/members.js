@@ -148,7 +148,12 @@ function toggleMemberHistory(name){
 // 未読の対戦通知をポップアップで表示する（自分のマイページ／メンバー一覧からの閲覧の両方で使用）
 
 function renderCurrentPage(){
-  renderMembers();
+  const targetName = new URLSearchParams(location.search).get('name');
+  if(targetName && data.players[targetName]){
+    viewMember(targetName);
+  } else {
+    renderMembers();
+  }
 }
 
 (async function(){
