@@ -204,16 +204,20 @@ function eventCardHtml(ev, onlyDay){
       const mine = currentPlayer ? dayAtt[currentPlayer] : null;
       const groups = {yes:[], maybe:[], no:[], watch:[]};
       Object.entries(dayAtt).forEach(([n,st])=>{ if(groups[st]) groups[st].push(n); });
-      const chipRow = (label, list, cls) => `
-        <div class="attend-breakdown-row">
-          <span class="attend-breakdown-label">${label}</span>
-          <span class="attend-breakdown-names">${list.length ? list.map(n=>`<span class="name-chip ${cls}">${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`).join('') : '<span class="attend-breakdown-empty">–</span>'}</span>
+      // 出欠の内訳は「出席/欠席/観戦/未定」ごとに罫線で区切ったブロックで表示する
+      const chipHtml = (n, cls) => `<span class="name-chip ${cls}">${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`;
+      const groupHtml = (label, list, cls, bodyHtml) => `
+        <div class="attend-group ${cls}">
+          <div class="attend-group-head">
+            <span class="attend-group-title">${label}</span>
+            <span class="attend-group-count">${list.length}名</span>
+          </div>
+          ${list.length ? bodyHtml : '<div class="attend-breakdown-empty">–</div>'}
         </div>`;
-      // 出席登録したメンバーは、最高MRのランク帯ごとにグループ分けして、名前の横にランクアイコンを表示する
+      const chipRow = (label, list, cls) => groupHtml(label, list, cls,
+        `<div class="attend-breakdown-names">${list.slice().sort((x,y)=>x.localeCompare(y,'ja')).map(n=>chipHtml(n, cls)).join('')}</div>`);
+      // 出席メンバーは、最高MRのランク帯ごとに称号(省略表記)を添えて並べる
       const attendYesRows = (list) => {
-        if(list.length === 0){
-          return `<div class="attend-breakdown-row"><span class="attend-breakdown-label">出席</span><span class="attend-breakdown-names"><span class="attend-breakdown-empty">–</span></span></div>`;
-        }
         const tiersDesc = MR_RANK_TIERS.slice().reverse();
         const buckets = tiersDesc.map(t => ({tier:t, names:[]}));
         const noRank = [];
@@ -227,7 +231,6 @@ function eventCardHtml(ev, onlyDay){
             noRank.push(n);
           }
         });
-        const nameChip = (n, icon) => `<span class="name-chip yes">${icon ? icon+' ' : ''}${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`;
         let rows = '';
         buckets.forEach(b=>{
           if(b.names.length===0) return;
@@ -235,7 +238,7 @@ function eventCardHtml(ev, onlyDay){
           rows += `
             <div class="attend-breakdown-row">
               <span class="attend-breakdown-label rank-label">${mrRankTextHtml(b.tier, true)}</span>
-              <span class="attend-breakdown-names">${b.names.map(n=>nameChip(n, '')).join('')}</span>
+              <span class="attend-breakdown-names">${b.names.map(n=>chipHtml(n, 'yes')).join('')}</span>
             </div>`;
         });
         if(noRank.length>0){
@@ -243,10 +246,10 @@ function eventCardHtml(ev, onlyDay){
           rows += `
             <div class="attend-breakdown-row">
               <span class="attend-breakdown-label">未登録</span>
-              <span class="attend-breakdown-names">${noRank.map(n=>nameChip(n, '')).join('')}</span>
+              <span class="attend-breakdown-names">${noRank.map(n=>chipHtml(n, 'yes')).join('')}</span>
             </div>`;
         }
-        return rows;
+        return groupHtml('出席', list, 'yes', `<div class="attend-tier-rows">${rows}</div>`);
       };
       // 出席期限を過ぎたら、回答用のボタンは非表示にし、
       // 「未定」「観戦」「出席(参加メンバー)」のみを確認用に表示する(欠席の内訳は表示しない)

@@ -3,6 +3,11 @@ function switchRankingSubTab(subTab){
   renderRanking();
 }
 
+function switchRankingMRSubTab(subTab){
+  rankingMRSubTab = subTab;
+  renderRanking();
+}
+
 function switchRankingRecordSubTab(subTab){
   rankingRecordSubTab = subTab;
   renderRanking();
@@ -37,7 +42,7 @@ function renderRanking(){
     }
 
     withBattles.sort((a,b) => b.count - a.count);
-    const actLabel = withBattles[0].actNumber ? `ACT${withBattles[0].actNumber}` : '今シーズン';
+    const actLabel = `Act${getCurrentActNumber()}`;
 
     let html = '';
     withBattles.forEach((p, i) => {
@@ -54,7 +59,7 @@ function renderRanking(){
           ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
-              <span class="rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
+              <span class="rank-name">${escapeHtml(p.name)}</span>
               <span class="rank-meta" style="font-size:24px;font-weight:800;">${p.count}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">戦</span>${countBadge}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
@@ -72,32 +77,19 @@ function renderRanking(){
   }
 
   if(rankingSubTab === 'mr'){
-    const withMR = names
-      .filter(n => data.players[n].currentMR && String(data.players[n].currentMR).trim() !== '')
-      .map(n => ({
-        name: n,
-        mr: parseInt(data.players[n].currentMR, 10) || 0,
-        previousMR: data.players[n].previousMR,
-        previousRank: data.players[n].previousMRRank
-      }))
-      .filter(p => p.mr > 0);
+    const actNo = getCurrentActNumber();
+    const mrSubTabsHtml = `
+      <div class="sub-tabs">
+        <div class="sub-tab ${rankingMRSubTab === 'max' ? 'active' : ''}" onclick="switchRankingMRSubTab('max')">👑 最高MRランキング</div>
+        <div class="sub-tab ${rankingMRSubTab === 'act' ? 'active' : ''}" onclick="switchRankingMRSubTab('act')">📊 Act${actNo}ランキング</div>
+      </div>`;
+    const head = subTabsHtml + mrSubTabsHtml;
 
-    if(withMR.length === 0){
-      el.innerHTML = subTabsHtml + '<div class="empty">MRが登録されているプレイヤーはいません</div>';
-      return;
-    }
-
-    withMR.sort((a,b) => b.mr - a.mr);
-
-    let html = '';
-    withMR.forEach((p, i) => {
+    // 共通: 1行分のカードHTML
+    const mrCardHtml = (p, rankLabel, mrBadge, rankBadge) => {
       const color = getMRColor(p.mr);
-      const rankLabel = i + 1;
       const medal = rankLabel === 1 ? '🥇' : rankLabel === 2 ? '🥈' : rankLabel === 3 ? '🥉' : `#${rankLabel}`;
-      const mrBadge = valueDeltaBadgeHtml(p.previousMR, p.mr, '');
-      const rankBadge = rankDeltaBadgeHtml(p.previousRank, rankLabel);
-
-      html += `
+      return `
         <div class="rank-card ${rankLabel === 1 ? 'r1' : ''}" onclick="goToMember('${p.name.replace(/'/g,"\\'")}')">
           <div class="rank-num-wrap">
             <div class="rank-num" style="color:${color}">${medal}</div>
@@ -106,24 +98,63 @@ function renderRanking(){
           ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
-              <span class="rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
+              <span class="rank-name">${escapeHtml(p.name)}${mrRankTitleHtmlByValue(p.mr)}</span>
               <span class="rank-meta" style="font-size:26px;font-weight:800;color:${color}">${p.mr}${mrBadge}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
           </div>
         </div>`;
-    });
+    };
+    const summaryHtml = (label, list) => {
+      const avg = list.reduce((sum, p) => sum + p.mr, 0) / list.length;
+      return `
+        <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
+          ${label} 平均: <span style="font-weight:800;color:${getMRColor(avg)};font-size:18px">${avg.toFixed(0)}</span>
+          （登録者 ${list.length}名）
+        </div>`;
+    };
 
-    const avgMR = withMR.reduce((sum, p) => sum + p.mr, 0) / withMR.length;
-    const avgColor = getMRColor(avgMR);
+    if(rankingMRSubTab === 'max'){
+      // 最高MR: 管理者/自動更新で登録された maxMR と、記録された現在MR(currentMR)のうち高い方を採用する
+      const withMax = names
+        .map(n => {
+          const pl = data.players[n];
+          const mx = parseInt(pl.maxMR, 10) || 0;
+          const cur = parseInt(pl.currentMR, 10) || 0;
+          return { name: n, mr: Math.max(mx, cur) };
+        })
+        .filter(p => p.mr > 0)
+        .sort((a,b) => b.mr - a.mr);
 
-    el.innerHTML = subTabsHtml + `
-      <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
-        平均MR: <span style="font-weight:800;color:${avgColor};font-size:18px">${avgMR.toFixed(0)}</span>
-        （登録者 ${withMR.length}名）
-      </div>
-      ${html}
-    `;
+      if(withMax.length === 0){
+        el.innerHTML = head + '<div class="empty">最高MRが登録されているプレイヤーはいません</div>';
+        return;
+      }
+      el.innerHTML = head + summaryHtml('最高MR', withMax)
+        + withMax.map((p, i) => mrCardHtml(p, i + 1, '', '')).join('');
+      return;
+    }
+
+    // Act〇〇ランキング: 現時点のMR(currentMR)で並べる。前日比も表示する。
+    const withMR = names
+      .filter(n => data.players[n].currentMR && String(data.players[n].currentMR).trim() !== '')
+      .map(n => ({
+        name: n,
+        mr: parseInt(data.players[n].currentMR, 10) || 0,
+        previousMR: data.players[n].previousMR,
+        previousRank: data.players[n].previousMRRank
+      }))
+      .filter(p => p.mr > 0)
+      .sort((a,b) => b.mr - a.mr);
+
+    if(withMR.length === 0){
+      el.innerHTML = head + `<div class="empty">Act${actNo}のMRが登録されているプレイヤーはいません</div>`;
+      return;
+    }
+    el.innerHTML = head + summaryHtml(`Act${actNo} 現在MR`, withMR)
+      + withMR.map((p, i) => mrCardHtml(p, i + 1,
+          valueDeltaBadgeHtml(p.previousMR, p.mr, ''),
+          rankDeltaBadgeHtml(p.previousRank, i + 1))).join('');
     return;
   }
 
@@ -183,7 +214,7 @@ function renderRanking(){
           ${data.players[info.name].icon ? `<img class="member-icon" src="${data.players[info.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
-              <span class="rank-name">${escapeHtml(info.name)} ${mrRankBadgeHtml(data.players[info.name], true)}</span>
+              <span class="rank-name">${escapeHtml(info.name)}</span>
               ${referenceBadge}
             </div>
             <div style="display:flex;gap:8px;margin-top:6px;">
@@ -303,7 +334,7 @@ function renderRanking(){
         ${p.icon ? `<img class="member-icon" src="${p.icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
         <div class="rank-body">
           <div class="rank-top">
-            <span class="rank-name">${escapeHtml(name)} ${mrRankBadgeHtml(p, true)}</span>
+            <span class="rank-name">${escapeHtml(name)}</span>
             <span class="rank-meta">${s.total}戦 ${s.wins}勝</span>
           </div>
           <div style="display:flex;gap:8px;margin-top:6px;">

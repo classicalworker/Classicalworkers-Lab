@@ -26,8 +26,11 @@ import { getDatabase } from 'firebase-admin/database';
 
 const DATABASE_URL = 'https://classical-workers-lab-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-// ====== 現在のACT情報(ACTが切り替わったらここだけ更新すればOK) ======
-const CURRENT_ACT_NUMBER = 13;
+// ====== 現在のACT情報 ======
+// ACT番号はサイトの管理者ページ(classical_worker_data/currentAct)で変更する。
+// 下の値は、管理者ページで未設定のときだけ使う初期値。
+const DEFAULT_ACT_NUMBER = 13;
+let CURRENT_ACT_NUMBER = DEFAULT_ACT_NUMBER;
 const CURRENT_ACT_START_DATE = '2026-08-02'; // 表示・参考用(試合数の集計自体はCSV側のリセットに依存)
 // ======================================================================
 
@@ -185,6 +188,11 @@ async function main() {
     databaseURL: DATABASE_URL,
   });
   const db = getDatabase();
+
+  // 管理者ページで設定された現在のACT番号を読み込む
+  const actSnap = await db.ref('classical_worker_data/currentAct').get();
+  const actVal = parseInt(actSnap.val(), 10);
+  if (Number.isFinite(actVal) && actVal > 0) CURRENT_ACT_NUMBER = actVal;
 
   const playersSnap = await db.ref('classical_worker_data/players').get();
   const players = playersSnap.val() || {};

@@ -30,7 +30,7 @@ function renderMembers(){
       <div class="member-card" onclick="viewMember('${name.replace(/'/g,"\\'")}')">
         ${iconHtml}
         <div class="member-card-body">
-          <div class="member-card-name">${escapeHtml(name)} ${mrRankBadgeHtml(p, true)}</div>
+          <div class="member-card-name">${escapeHtml(name)}</div>
           ${p.currentMR
             ? `<div class="member-card-mr" style="color:${getMRColor(parseInt(p.currentMR)||0)}">MR ${escapeHtml(p.currentMR)}${p.maxMR ? ` <span style="color:var(--text-dim);font-weight:400;font-size:11px;">(最大 ${escapeHtml(p.maxMR)})</span>` : ''}</div>`
             : (p.userCode
@@ -102,8 +102,7 @@ function viewMember(name){
         ${iconHeaderHtml}
         <h2 style="margin:0">${escapeHtml(name)}<span class="tag" style="background:none;color:var(--text-dim);font-weight:400;padding:0;font-size:16px;">操作:${escapeHtml(controlLabel)}</span></h2>
       </div>
-      ${p.maxMR ? `<div style="margin-bottom:8px">${mrRankBadgeHtml(p, false)}</div>` : ''}
-      ${p.currentMR
+            ${p.currentMR
         ? `<div style="font-family:var(--font-mono);font-size:22px;font-weight:800;color:${mrColor};margin-bottom:4px">MR: ${escapeHtml(p.currentMR)}</div>`
         : (p.userCode ? `<div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--text-dim);margin-bottom:4px">今ACTランクマッチ未実施</div>` : '')}
       ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:4px">最大MR: ${escapeHtml(p.maxMR)}</div>` : ''}

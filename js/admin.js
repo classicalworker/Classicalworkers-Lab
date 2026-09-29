@@ -68,10 +68,39 @@ function adminDashboardHtml(){
 
     ${adminMemberManageHtml()}
     ${adminScheduleShortcutHtml()}
+    ${adminActSettingsHtml()}
     ${adminRegulationSettingsHtml()}
     ${adminMemberEditHtml()}
     ${adminAnnouncementsHtml()}
   `;
+}
+
+// ---- 現在のACT番号の設定(MRランキングの「Act〇〇ランキング」タブ名・MR自動更新に使う) ----
+function adminActSettingsHtml(){
+  const act = getCurrentActNumber();
+  return `
+    <div class="card">
+      <h2>📅 現在のACT</h2>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
+        ランキングの「Act${act}ランキング」タブの名前と、試合数ランキングの表記に使われます。<br>
+        ゲーム側でACTが切り替わったら、ここを新しい番号に変更してください(翌日のMR自動更新からこの番号で記録されます)。
+      </div>
+      <label>現在のACT番号</label>
+      <div class="row">
+        <input type="number" id="admin-current-act" value="${act}" min="1" style="max-width:120px;">
+        <button class="primary" style="margin-top:0;width:auto;padding:10px 18px;" onclick="adminUpdateCurrentAct()">更新</button>
+      </div>
+    </div>`;
+}
+
+async function adminUpdateCurrentAct(){
+  const input = document.getElementById('admin-current-act');
+  const v = parseInt(input.value, 10);
+  if(isNaN(v) || v < 1){ showToast('1以上の数字を入力してください'); return; }
+  data.currentAct = v;
+  await saveData();
+  renderAdmin();
+  showToast(`現在のACTをAct${v}に変更しました`);
 }
 
 // ---- ②' 対戦成績ランキングの規定試合数の設定 ----
@@ -189,7 +218,7 @@ function adminMemberEditHtml(){
     const p = data.players[n];
     return `
       <div class="match-edit-row" style="flex-wrap:wrap;">
-        <div style="flex:1;min-width:90px;font-weight:800;font-size:13px;">${escapeHtml(n)} ${mrRankBadgeHtml(p, true)}</div>
+        <div style="flex:1;min-width:90px;font-weight:800;font-size:13px;">${escapeHtml(n)}</div>
         <input type="text" value="${escapeHtml(p.mainGoal||'')}" placeholder="大目標"
           onchange="adminUpdatePlayerField('${escapeHtml(n)}','mainGoal',this.value)">
         <input type="text" value="${escapeHtml(p.maxMR||'')}" placeholder="最高MR" style="max-width:90px;"

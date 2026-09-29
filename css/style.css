@@ -780,14 +780,28 @@
   .attend-btn.watch.selected{background:var(--watch);border-color:var(--watch);color:#fff;}
   .attend-btn:active{transform:scale(0.94);}
 
-  .attend-breakdown{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
-  .attend-breakdown-row{display:flex;gap:10px;align-items:flex-start;}
-  /* ランク名(ULTIMATE等)が入っても出席者バッジと重ならないよう、幅は中身に合わせて伸ばす */
+  .attend-breakdown{margin-top:10px;display:flex;flex-direction:column;border-top:1px solid var(--panel-border);}
+  /* 出欠ごとのブロック(出席/欠席/観戦/未定)を罫線で区切る */
+  .attend-group{padding:8px 0 8px 10px;border-bottom:1px solid var(--panel-border);border-left:3px solid var(--panel-border);}
+  .attend-group.yes{border-left-color:var(--win);background:rgba(var(--win-rgb),.05);}
+  .attend-group.no{border-left-color:var(--loss);}
+  .attend-group.watch{border-left-color:var(--watch);}
+  .attend-group.maybe{border-left-color:var(--gold);}
+  .attend-group-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;}
+  .attend-group-title{font-size:13px;font-weight:800;color:var(--text);}
+  .attend-group.yes .attend-group-title{color:var(--win);}
+  .attend-group.no .attend-group-title{color:var(--loss);}
+  .attend-group.watch .attend-group-title{color:var(--watch);}
+  .attend-group.maybe .attend-group-title{color:var(--gold);}
+  .attend-group-count{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
+  .attend-tier-rows{display:flex;flex-direction:column;gap:6px;}
+  .attend-breakdown-row{display:flex;gap:8px;align-items:center;}
+  /* 称号(ULTIMATE等)の列: 小さめの文字で幅をそろえ、名前のバッジと重ならないようにする */
   .attend-breakdown-label{
-    font-family:var(--font-mono);font-size:12px;color:var(--text-dim);
-    min-width:72px;flex-shrink:0;padding-top:4px;white-space:nowrap;line-height:1.2;
+    font-family:var(--font-mono);font-size:10px;color:var(--text-dim);
+    width:58px;flex-shrink:0;white-space:nowrap;line-height:1.2;text-align:left;
   }
-  .attend-breakdown-label.rank-label{font-size:13px;padding-top:3px;}
+  .attend-breakdown-label.rank-label .mr-rank-text{font-size:10px;letter-spacing:.04em;}
   .attend-breakdown-names{flex:1;display:flex;flex-wrap:wrap;gap:5px;min-width:0;}
   .name-chip{
     font-size:12px;padding:3px 9px;border-radius:20px;

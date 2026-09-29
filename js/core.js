@@ -13,6 +13,8 @@ let opponentName = '';
 let rankingSubTab = 'winrate';
 // 対戦成績タブ内の絞り込み: 'interteam'(対抗戦成績) / 'internal'(身内イベント成績) / 'all'(総合成績)
 let rankingRecordSubTab = 'interteam';
+// MRランキングタブ内の切り替え: 'max'(最高MRランキング) / 'act'(現在ACTのランキング)
+let rankingMRSubTab = 'max';
 let editingEventId = null;
 
 // スコアと大会名保持用
@@ -57,6 +59,15 @@ let tabStates = {
 };
 
 
+// 現在のACT番号の初期値(管理者ページの「現在のACT」から変更できる)
+const DEFAULT_ACT_NUMBER = 13;
+
+// 現在のACT番号を返す(管理者ページで設定した値。未設定なら初期値)
+function getCurrentActNumber(){
+  const v = parseInt(data && data.currentAct, 10);
+  return (isNaN(v) || v <= 0) ? DEFAULT_ACT_NUMBER : v;
+}
+
 function defaultData(){
   const players = {};
   SEED_PLAYERS.forEach(n => players[n] = {
@@ -67,7 +78,7 @@ function defaultData(){
   });
   // interTeamBaseCount: タグ管理(予定の「対抗戦」/「身内イベント」区分)を始める前に、
   // すでに開催済みだった対抗戦の数。勝率ランキングの規定試合数の計算に使う基礎値。
-  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[], interTeamBaseCount: 2};
+  return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[], interTeamBaseCount: 2, currentAct: DEFAULT_ACT_NUMBER};
 }
 
 // データ補正用の共通関数
@@ -150,6 +161,11 @@ function normalizeData(data){
     });
   } else {
     data.events = [];
+  }
+
+  // currentAct(現在のACT番号)の補正
+  if (data.currentAct === undefined || data.currentAct === null || isNaN(parseInt(data.currentAct, 10))) {
+    data.currentAct = DEFAULT_ACT_NUMBER;
   }
 
   // interTeamBaseCount(規定試合数の基礎値)の補正
@@ -661,20 +677,18 @@ function getMRRankInfo(mr){
 }
 
 // ランク名を「白抜き+ランク色の縁取り」文字で返す(見た目は css の .mr-rank-text で定義)
-// useShort=true のときは省略表記(出席確認の内訳でのみ使用)
+// useShort=true のときは省略表記(出席確認の内訳で使用)
 function mrRankTextHtml(info, useShort, extraClass){
   const label = useShort ? info.short : info.name;
-  return `<span class="mr-rank-text ${extraClass||''}" style="--rank-color:${info.color};" title="${info.name}(最高MR基準)">${label}</span>`;
+  return `<span class="mr-rank-text ${extraClass||''}" style="--rank-color:${info.color};" title="${info.name}">${label}</span>`;
 }
 
-// 最高MR(p.maxMR)に基づくランク帯バッジのHTMLを返す。maxMR未登録なら空文字を返す。
-// 省略表記は出席確認の内訳だけで使うため、ここでは常に正式名称(HIGH MASTER など)で表示する。
-// inline=true: 名前の横に並べる文字表示 / inline=false: 枠付きのピル表示(マイページ見出し・メンバー詳細)
-function mrRankBadgeHtml(p, inline){
-  if(!p || !p.maxMR || String(p.maxMR).trim()==='') return '';
-  const info = getMRRankInfo(p.maxMR);
-  if(inline) return mrRankTextHtml(info, false, 'inline');
-  return `<span class="mr-rank-pill" style="--rank-color:${info.color};">${mrRankTextHtml(info, false)}</span>`;
+// 称号(MASTER〜LEGEND)は「MRランキング」と「出席確認」でのみ表示する。
+// MRランキングでは、そのタブで表示しているMRの値(最高MR / 現在ACTのMR)から称号を決める。
+function mrRankTitleHtmlByValue(mr){
+  const v = Number(mr) || 0;
+  if(v <= 0) return '';
+  return mrRankTextHtml(getMRRankInfo(v), false, 'inline');
 }
 
 function getMRColor(mr){
@@ -824,6 +838,7 @@ async function resetAll(){
   selectedMember = null;
   rankingSubTab = 'winrate';
   rankingRecordSubTab = 'interteam';
+  rankingMRSubTab = 'max';
   savedScoreMe = 0;
   savedScoreOpp = 0;
   opponentName = '';

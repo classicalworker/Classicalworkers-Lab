@@ -498,7 +498,7 @@ function topMrRankingCardHtml(){
         </div>
         ${iconHtml}
         <div class="top-rank-body">
-          <span class="top-rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
+          <span class="top-rank-name">${escapeHtml(p.name)}</span>
           <span class="top-rank-rate">MR ${p.mr}${mrBadge}</span>
         </div>
       </div>`;
@@ -540,7 +540,7 @@ function topBattleRankingCardHtml(){
         </div>
         ${iconHtml}
         <div class="top-rank-body">
-          <span class="top-rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
+          <span class="top-rank-name">${escapeHtml(p.name)}</span>
           <span class="top-rank-rate">${p.count}戦${countBadge}</span>
         </div>
       </div>`;
@@ -572,7 +572,7 @@ function topRankingCardHtml(){
         <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
         ${iconHtml}
         <div class="top-rank-body">
-          <span class="top-rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
+          <span class="top-rank-name">${escapeHtml(p.name)}</span>
           <span class="top-rank-rate">勝率 ${p.stats.winRate.toFixed(0)}% (${p.stats.total}戦${p.stats.wins}勝)</span>
         </div>
       </div>`;
