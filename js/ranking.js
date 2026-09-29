@@ -296,32 +296,37 @@ function renderRanking(){
     const reached = info ? info.reached : false;
     const rankLabel = s.total>0 ? (i+1) : '–';
 
-    // 直近の対戦結果(対戦相手を大きく、勝敗は小さく添える。大会名・相手MRも表示する)
+    // 直近の対戦結果(開催日が新しい試合)。
+    // 特別演出: ストレート勝利=黄 / 格上撃破=赤 / 格上ストレート勝利=虹
     const latest = getPlayerLatestMatch(p, categories);
-    // 自分の最高MRより格上の相手に勝利、または、ストレート勝利(1-0を除く)の場合は特別演出をつける(どちらか一方でよい)
     const notableInfo = getNotableWinInfo(latest, p.maxMR);
-    const notableLabel = notableInfo.isUpset && notableInfo.isStraight
-      ? '⚡格上ストレート勝利'
-      : notableInfo.isUpset
-        ? '⚡格上撃破'
-        : notableInfo.isStraight
-          ? '⚡ストレート勝利'
-          : '';
-    const latestDetailHtml = latest
-      ? `<div class="latest-match-detail">${latest.eventName ? `<div class="latest-match-event">🏷 ${escapeHtml(latest.eventName)}</div>` : ''}${latest.opponentMR ? `<div class="latest-match-oppmr">相手MR ${escapeHtml(latest.opponentMR)}</div>` : ''}</div>`
-      : '';
-    const latestMatchBoxHtml = `
-      <div class="${notableInfo.notable ? 'latest-match-upset' : ''}" style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">直近の対戦結果${notableInfo.notable ? ' 🔥' : ''}</div>
-        ${latest
-          ? `<div style="font-size:16px;font-weight:800;color:var(--text);">vs ${escapeHtml(latest.opponent||'')}</div>
-             <div style="font-size:10px;font-weight:700;color:${latest.result==='win'?'var(--win)':'var(--loss)'};margin-top:2px;">${latest.result==='win'?'勝ち':'負け'}${latest.score?`(${escapeHtml(latest.score)})`:''}</div>
-             ${latestDetailHtml}
-             ${notableInfo.notable ? `<div style="font-size:9px;font-weight:800;color:var(--gold);margin-top:3px;">${notableLabel}</div>` : ''}`
-          : `<div style="font-size:14px;font-weight:700;color:var(--text-dim);margin-top:4px;">記録なし</div>`
-        }
+    const fx = notableInfo.isUpset && notableInfo.isStraight ? {cls:'fx-rainbow', label:'格上ストレート勝利'}
+      : notableInfo.isUpset ? {cls:'fx-upset', label:'格上撃破'}
+      : notableInfo.isStraight ? {cls:'fx-straight', label:'ストレート勝利'}
+      : null;
+
+    const latestBoxHtml = latest ? `
+      <div class="rec-latest ${fx ? fx.cls : ''}">
+        <div class="rec-latest-head">
+          <span class="rec-label">直近の対戦結果</span>
+          ${fx ? `<span class="rec-fx-label">${fx.label}</span>` : ''}
+        </div>
+        <div class="rec-latest-main">
+          <span class="rec-latest-opp">vs ${escapeHtml(latest.opponent||'')}</span>
+          <span class="rec-latest-result ${latest.result==='win'?'win':'loss'}">${latest.result==='win'?'WIN':'LOSE'}${latest.score?`<span class="rec-latest-score">${escapeHtml(latest.score)}</span>`:''}</span>
+        </div>
+        ${(latest.eventName || latest.opponentMR) ? `
+        <div class="rec-latest-sub">
+          ${latest.eventName ? `<span class="rec-latest-event">${escapeHtml(latest.eventName)}</span>` : ''}
+          ${latest.opponentMR ? `<span class="rec-latest-oppmr">相手MR ${escapeHtml(latest.opponentMR)}</span>` : ''}
+        </div>` : ''}
+      </div>` : `
+      <div class="rec-latest empty-latest">
+        <div class="rec-latest-head"><span class="rec-label">直近の対戦結果</span></div>
+        <div class="rec-latest-none">記録なし</div>
       </div>`;
 
+    const losses = Math.max(0, s.total - s.wins);
     const regulationBadge = s.total>0
       ? (reached
           ? `<span class="pill" style="background:rgba(var(--win-rgb),.12);color:var(--win);">規定到達</span>`
@@ -329,25 +334,26 @@ function renderRanking(){
       : '';
 
     html += `
-      <div class="rank-card ${i===0 && s.total>0 && reached ? 'r1':''}" onclick="goToMember('${name.replace(/'/g,"\\'")}')">
+      <div class="rank-card rec-card ${i===0 && s.total>0 && reached ? 'r1':''}" onclick="goToMember('${name.replace(/'/g,"\\'")}')">
         <div class="rank-num">${rankLabel}</div>
         ${p.icon ? `<img class="member-icon" src="${p.icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
         <div class="rank-body">
           <div class="rank-top">
             <span class="rank-name">${escapeHtml(name)}</span>
-            <span class="rank-meta">${s.total}戦 ${s.wins}勝</span>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:6px;">
-            <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
-              <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">勝率</div>
-              <div style="font-size:20px;font-weight:800;color:var(--win);">${s.winRate.toFixed(0)}%</div>
-            </div>
-            ${latestMatchBoxHtml}
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;">
-            <span style="font-size:11px;color:var(--text-dim);">規定試合 ${required}試合中 ${interCount}試合(${tagLabel})</span>
             ${regulationBadge}
           </div>
+          <div class="rec-stats">
+            <div class="rec-stat">
+              <div class="rec-label">戦績</div>
+              <div class="rec-stat-val">${s.total}<small>戦</small> <span class="win">${s.wins}<small>勝</small></span> <span class="loss">${losses}<small>敗</small></span></div>
+            </div>
+            <div class="rec-stat">
+              <div class="rec-label">勝率</div>
+              <div class="rec-stat-val rate">${s.winRate.toFixed(0)}<small>%</small></div>
+            </div>
+          </div>
+          ${latestBoxHtml}
+          <div class="rec-foot">規定試合 ${required}試合中 ${interCount}試合(${tagLabel})</div>
           ${memberMetaChipsHtml(p)}
         </div>
       </div>`;
