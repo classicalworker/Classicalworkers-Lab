@@ -267,19 +267,26 @@ function renderRanking(){
 
     // 直近の対戦結果(対戦相手を大きく、勝敗は小さく添える。大会名・相手MRも表示する)
     const latest = getPlayerLatestMatch(p, categories);
-    // 自分の最高MRより格上の相手にストレート勝利(1-0を除く)した場合は特別演出をつける
-    const isUpsetWin = isNotableStraightWin(latest, p.maxMR);
+    // 自分の最高MRより格上の相手に勝利、または、ストレート勝利(1-0を除く)の場合は特別演出をつける(どちらか一方でよい)
+    const notableInfo = getNotableWinInfo(latest, p.maxMR);
+    const notableLabel = notableInfo.isUpset && notableInfo.isStraight
+      ? '⚡格上ストレート勝利'
+      : notableInfo.isUpset
+        ? '⚡格上撃破'
+        : notableInfo.isStraight
+          ? '⚡ストレート勝利'
+          : '';
     const latestDetailHtml = latest
       ? `<div style="font-size:9px;color:var(--text-dim);margin-top:3px;">${latest.eventName ? `🏷 ${escapeHtml(latest.eventName)}` : ''}${(latest.eventName && latest.opponentMR) ? '　' : ''}${latest.opponentMR ? `相手MR ${escapeHtml(latest.opponentMR)}` : ''}</div>`
       : '';
     const latestMatchBoxHtml = `
-      <div class="${isUpsetWin ? 'latest-match-upset' : ''}" style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">直近の対戦結果${isUpsetWin ? ' 🔥' : ''}</div>
+      <div class="${notableInfo.notable ? 'latest-match-upset' : ''}" style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
+        <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">直近の対戦結果${notableInfo.notable ? ' 🔥' : ''}</div>
         ${latest
           ? `<div style="font-size:16px;font-weight:800;color:var(--text);">vs ${escapeHtml(latest.opponent||'')}</div>
              <div style="font-size:10px;font-weight:700;color:${latest.result==='win'?'var(--win)':'var(--loss)'};margin-top:2px;">${latest.result==='win'?'勝ち':'負け'}${latest.score?`(${escapeHtml(latest.score)})`:''}</div>
              ${latestDetailHtml}
-             ${isUpsetWin ? `<div style="font-size:9px;font-weight:800;color:var(--gold);margin-top:3px;">⚡格上ストレート勝利</div>` : ''}`
+             ${notableInfo.notable ? `<div style="font-size:9px;font-weight:800;color:var(--gold);margin-top:3px;">${notableLabel}</div>` : ''}`
           : `<div style="font-size:14px;font-weight:700;color:var(--text-dim);margin-top:4px;">記録なし</div>`
         }
       </div>`;

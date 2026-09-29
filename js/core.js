@@ -463,21 +463,33 @@ function getPlayerLatestMatch(p, categories){
   return matches.reduce((latest, m) => (!latest || new Date(m.date) > new Date(latest.date)) ? m : latest, null);
 }
 
-// 「自分の最高MRより格上の相手に、ストレート勝利(1-0を除く)した」かどうかを判定する。
+// 「自分の最高MRより格上の相手に勝利した」または「ストレート勝利(1-0を除く)した」かどうかを判定する。
+// (どちらか一方を満たせば対象。両方を満たす必要はない)
 // 直近の対戦結果カードに特別演出をつけるために使う。
-function isNotableStraightWin(match, myMaxMR){
-  if(!match || match.result !== 'win') return false;
-  if(!match.opponentMR || !myMaxMR) return false;
-  const oppMR = Number(match.opponentMR);
-  const myMax = Number(myMaxMR);
-  if(isNaN(oppMR) || isNaN(myMax) || oppMR <= myMax) return false;
-  if(!match.score) return false;
-  const parts = String(match.score).split('-').map(s=>parseInt(String(s).trim(),10));
-  if(parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
-  const [myScore, oppScore] = parts;
-  if(oppScore !== 0 || myScore <= 0) return false; // ストレート勝利のみ
-  if(myScore === 1) return false; // 1-0は除外
-  return true;
+// 戻り値: {notable, isUpset, isStraight} ※notableはisUpset||isStraight
+function getNotableWinInfo(match, myMaxMR){
+  const none = {notable:false, isUpset:false, isStraight:false};
+  if(!match || match.result !== 'win') return none;
+
+  // 格上撃破: 相手MRが自分の最高MRより高い
+  let isUpset = false;
+  if(match.opponentMR && myMaxMR){
+    const oppMR = Number(match.opponentMR);
+    const myMax = Number(myMaxMR);
+    if(!isNaN(oppMR) && !isNaN(myMax) && oppMR > myMax) isUpset = true;
+  }
+
+  // ストレート勝利(1-0は除外)
+  let isStraight = false;
+  if(match.score){
+    const parts = String(match.score).split('-').map(s=>parseInt(String(s).trim(),10));
+    if(parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])){
+      const [myScore, oppScore] = parts;
+      if(oppScore === 0 && myScore >= 2) isStraight = true; // 1-0は除外
+    }
+  }
+
+  return {notable: isUpset || isStraight, isUpset, isStraight};
 }
 
 // 指定カテゴリの予定(出欠確認ありのもの)について、開催日数を分母、実際に「出席」と
