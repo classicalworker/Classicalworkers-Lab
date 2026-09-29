@@ -469,14 +469,42 @@ function isPlayerRegulationMet(p){
 
 // 指定カテゴリ(対抗戦/身内イベントなど)の予定に紐づく対戦のうち、最も新しいものを1件返す。
 // 該当する対戦が無ければnullを返す。
+// 試合が行われた日(YYYY-MM-DD)を返す。
+// 優先順位: ① 試合記録に保存された開催日(eventDay)
+//           ② 予定の結果記録(ev.results)から eventResultId で開催日をたどる(既存データ用)
+//           ③ 予定の開催日(複数日の場合は、入力日以前で最も遅い開催日。なければ最終日)
+//           ④ それでも分からなければ入力日
+function getMatchPlayedDay(m, ev){
+  if(m.eventDay) return m.eventDay;
+  const inputDay = m.date ? String(m.date).slice(0,10) : '';
+  if(ev){
+    if(m.eventResultId && Array.isArray(ev.results)){
+      const r = ev.results.find(x => x.id === m.eventResultId);
+      if(r && r.day) return r.day;
+    }
+    const dates = (ev.dates||[]).slice().sort();
+    if(dates.length === 1) return dates[0];
+    if(dates.length > 1){
+      const past = inputDay ? dates.filter(d => d <= inputDay) : [];
+      return past.length ? past[past.length-1] : dates[dates.length-1];
+    }
+  }
+  return inputDay;
+}
+
+// 直近の対戦結果: 開催日が新しい試合を優先し、同じ日の試合どうしは入力日時が新しいものを優先する。
+// (過去の予定の結果を後から入力しても、直近の結果が置き換わらないようにするため)
 function getPlayerLatestMatch(p, categories){
-  const matches = (p.matches||[]).filter(m=>{
-    if(m.eventType !== 'event' || !m.eventId) return false;
+  const candidates = [];
+  (p.matches||[]).forEach(m=>{
+    if(m.eventType !== 'event' || !m.eventId) return;
     const ev = (data.events||[]).find(e=>e.id===m.eventId);
-    return ev && categories.includes(ev.category);
+    if(!ev || !categories.includes(ev.category)) return;
+    candidates.push({m, day: getMatchPlayedDay(m, ev), at: new Date(m.date).getTime() || 0});
   });
-  if(matches.length===0) return null;
-  return matches.reduce((latest, m) => (!latest || new Date(m.date) > new Date(latest.date)) ? m : latest, null);
+  if(candidates.length===0) return null;
+  candidates.sort((a,b) => (a.day === b.day) ? (b.at - a.at) : (a.day < b.day ? 1 : -1));
+  return candidates[0].m;
 }
 
 // 「自分の最高MRより格上の相手に勝利した」または「ストレート勝利(1-0を除く)した」かどうかを判定する。

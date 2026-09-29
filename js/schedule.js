@@ -244,7 +244,7 @@ function eventCardHtml(ev, onlyDay){
         if(noRank.length>0){
           noRank.sort((x,y)=>x.localeCompare(y,'ja'));
           rows += `
-            <div class="attend-breakdown-row">
+            <div class="attend-breakdown-row no-rank">
               <span class="attend-breakdown-label">未登録</span>
               <span class="attend-breakdown-names">${noRank.map(n=>chipHtml(n, 'yes')).join('')}</span>
             </div>`;
@@ -708,7 +708,7 @@ async function submitResultModal(){
 
   data.players[a].matches.push({
     opponent, result: resultA, score: `${resultModalScoreA}-${resultModalScoreB}`,
-    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId,
+    eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId, eventDay: day,
     opponentMR: opponentMRValue || ''
   });
 
@@ -716,7 +716,7 @@ async function submitResultModal(){
     if(!data.players[opponent].notifications) data.players[opponent].notifications = [];
     data.players[opponent].matches.push({
       opponent: a, result: resultOpp, score: `${resultModalScoreB}-${resultModalScoreA}`,
-      eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId,
+      eventName: ev.title, eventId: ev.id, eventType: 'event', date: matchDate, eventResultId: resultId, eventDay: day,
       opponentMR: registeredPlayerMR(a) || ''
     });
     data.players[opponent].notifications.push({opponent: a, result: resultOpp, score: `${resultModalScoreB}-${resultModalScoreA}`, eventName: ev.title, date: matchDate});

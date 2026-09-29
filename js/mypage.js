@@ -577,7 +577,10 @@ async function saveMatchEdit(idx){
       eventName: match.eventName || '',
       eventId: match.eventId || null,
       eventType: match.eventType || null,
-      date: match.date || new Date().toISOString()
+      date: match.date || new Date().toISOString(),
+      // 直近の結果の判定に使う開催日・結果IDも引き継ぐ
+      ...(match.eventDay ? {eventDay: match.eventDay} : {}),
+      ...(match.eventResultId ? {eventResultId: match.eventResultId} : {})
     });
   }
 
