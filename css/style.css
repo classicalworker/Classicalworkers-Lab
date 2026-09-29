@@ -433,6 +433,17 @@
     70%{box-shadow:0 0 0 10px rgba(var(--gold-rgb),0);}
     100%{box-shadow:0 0 0 0 rgba(var(--gold-rgb),0);}
   }
+  /* 直近の対戦結果: 自分の最高MRより格上の相手にストレート勝利(1-0を除く)した場合の特別演出 */
+  .latest-match-upset{
+    position:relative;
+    background:linear-gradient(135deg, rgba(var(--gold-rgb),.28), rgba(var(--gold-rgb),.06)) !important;
+    border:1px solid rgba(var(--gold-rgb),.65);
+    animation:upsetGlow 1.6s ease-in-out infinite;
+  }
+  @keyframes upsetGlow{
+    0%,100%{box-shadow:0 0 4px 0 rgba(var(--gold-rgb),.5);}
+    50%{box-shadow:0 0 14px 3px rgba(var(--gold-rgb),.85);}
+  }
   .onair-list{
     display:grid;grid-template-columns:1fr;gap:10px;
     position:relative;z-index:1;
