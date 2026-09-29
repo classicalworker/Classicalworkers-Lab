@@ -442,16 +442,6 @@
     100%{box-shadow:0 0 0 0 rgba(var(--gold-rgb),0);}
   }
   /* 直近の対戦結果: 自分の最高MRより格上の相手にストレート勝利(1-0を除く)した場合の特別演出 */
-  .latest-match-upset{
-    position:relative;
-    background:linear-gradient(135deg, rgba(var(--gold-rgb),.28), rgba(var(--gold-rgb),.06)) !important;
-    border:1px solid rgba(var(--gold-rgb),.65);
-    animation:upsetGlow 1.6s ease-in-out infinite;
-  }
-  @keyframes upsetGlow{
-    0%,100%{box-shadow:0 0 4px 0 rgba(var(--gold-rgb),.5);}
-    50%{box-shadow:0 0 14px 3px rgba(var(--gold-rgb),.85);}
-  }
   .onair-list{
     display:grid;grid-template-columns:1fr;gap:10px;
     position:relative;z-index:1;
@@ -794,7 +784,13 @@
   .attend-group.watch .attend-group-title{color:var(--watch);}
   .attend-group.maybe .attend-group-title{color:var(--gold);}
   .attend-group-count{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
-  .attend-tier-rows{display:flex;flex-direction:column;gap:6px;}
+  .attend-tier-rows{display:flex;flex-direction:column;}
+  .attend-tier-rows .attend-breakdown-row{padding:6px 10px 6px 0;}
+  .attend-tier-rows .attend-breakdown-row:first-child{padding-top:0;}
+  /* 称号ごとの行は薄い破線で区切る */
+  .attend-tier-rows .attend-breakdown-row + .attend-breakdown-row{border-top:1px dashed rgba(var(--text-dim-rgb),.35);}
+  /* MR未登録のメンバーは称号ありのメンバーと実線で仕切る */
+  .attend-tier-rows .attend-breakdown-row.no-rank{border-top:1px solid rgba(var(--text-dim-rgb),.6);margin-top:4px;padding-top:8px;}
   .attend-breakdown-row{display:flex;gap:8px;align-items:center;}
   /* 称号(ULTIMATE等)の列: 小さめの文字で幅をそろえ、名前のバッジと重ならないようにする */
   .attend-breakdown-label{
@@ -1193,7 +1189,71 @@
   }
   h2 .mr-rank-pill{margin-left:8px;}
 
-  /* 対戦成績: 直近の対戦結果の大会名・相手MR */
-  .latest-match-detail{margin-top:5px;display:flex;flex-direction:column;align-items:center;gap:2px;}
-  .latest-match-event{font-size:12px;color:var(--text);font-weight:600;line-height:1.3;word-break:break-all;}
-  .latest-match-oppmr{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--gold);}
+  /* ==== 対戦成績(対抗戦・身内イベント)カード ==== */
+  .rec-card .rank-top{align-items:center;gap:8px;}
+  .rec-label{font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:.02em;}
+  .rec-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+  .rec-stat{background:rgba(255,255,255,.04);border:1px solid var(--panel-border);border-radius:8px;padding:8px 6px;text-align:center;}
+  .rec-stat-val{font-family:var(--font-mono);font-size:18px;font-weight:800;color:var(--text);margin-top:2px;line-height:1.2;white-space:nowrap;}
+  .rec-stat-val small{font-size:11px;font-weight:600;color:var(--text-dim);margin-left:1px;}
+  .rec-stat-val .win{color:var(--win);} .rec-stat-val .loss{color:var(--loss);}
+  .rec-stat-val.rate{font-size:22px;color:var(--win);}
+
+  .rec-latest{
+    position:relative;margin-top:8px;padding:9px 12px;border-radius:8px;
+    background:rgba(255,255,255,.04);border:1px solid var(--panel-border);
+  }
+  .rec-latest-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+  .rec-latest-main{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .rec-latest-opp{font-size:16px;font-weight:800;color:var(--text);min-width:0;line-height:1.3;word-break:break-all;}
+  .rec-latest-result{font-family:var(--font-mono);font-size:13px;font-weight:800;white-space:nowrap;flex-shrink:0;}
+  .rec-latest-result.win{color:var(--win);} .rec-latest-result.loss{color:var(--loss);}
+  .rec-latest-score{margin-left:6px;color:var(--text);}
+  .rec-latest-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:5px;padding-top:5px;border-top:1px dashed rgba(var(--text-dim-rgb),.3);}
+  .rec-latest-event{font-size:12px;color:var(--text);font-weight:600;word-break:break-all;}
+  .rec-latest-oppmr{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap;}
+  .rec-latest-none{font-size:13px;font-weight:700;color:var(--text-dim);text-align:center;padding:4px 0;}
+  .rec-foot{font-size:11px;color:var(--text-dim);margin-top:7px;}
+  .rec-fx-label{font-size:11px;font-weight:800;padding:1px 9px;border-radius:12px;white-space:nowrap;}
+
+  /* ストレート勝利: 黄 */
+  .rec-latest.fx-straight{
+    background:linear-gradient(135deg, rgba(250,204,21,.22), rgba(250,204,21,.04));
+    border-color:rgba(250,204,21,.8);animation:fxGlowYellow 1.6s ease-in-out infinite;
+  }
+  .fx-straight .rec-fx-label{background:#facc15;color:#1a1400;}
+  @keyframes fxGlowYellow{0%,100%{box-shadow:0 0 4px 0 rgba(250,204,21,.5);}50%{box-shadow:0 0 14px 3px rgba(250,204,21,.85);}}
+
+  /* 格上撃破: 赤 */
+  .rec-latest.fx-upset{
+    background:linear-gradient(135deg, rgba(239,68,68,.24), rgba(239,68,68,.04));
+    border-color:rgba(239,68,68,.85);animation:fxGlowRed 1.6s ease-in-out infinite;
+  }
+  .fx-upset .rec-fx-label{background:#ef4444;color:#fff;}
+  @keyframes fxGlowRed{0%,100%{box-shadow:0 0 4px 0 rgba(239,68,68,.5);}50%{box-shadow:0 0 14px 3px rgba(239,68,68,.85);}}
+
+  /* 格上ストレート勝利: 虹(枠線が流れる+発光の色が変わる) */
+  .rec-latest.fx-rainbow{
+    border:2px solid transparent;
+    background:
+      linear-gradient(135deg, rgba(40,32,18,.96), rgba(24,21,15,.96)) padding-box,
+      linear-gradient(90deg,#ef4444,#f97316,#facc15,#22c55e,#3b82f6,#a855f7,#ef4444) border-box;
+    background-size:100% 100%, 300% 100%;
+    animation:fxRainbowFlow 3s linear infinite, fxRainbowGlow 3s linear infinite;
+  }
+  .fx-rainbow .rec-fx-label{
+    color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);
+    background:linear-gradient(90deg,#ef4444,#f97316,#facc15,#22c55e,#3b82f6,#a855f7);
+  }
+  @keyframes fxRainbowFlow{from{background-position:0 0, 0% 0;}to{background-position:0 0, 300% 0;}}
+  @keyframes fxRainbowGlow{
+    0%{box-shadow:0 0 10px 1px rgba(239,68,68,.6);}
+    20%{box-shadow:0 0 10px 1px rgba(250,204,21,.6);}
+    40%{box-shadow:0 0 10px 1px rgba(34,197,94,.6);}
+    60%{box-shadow:0 0 10px 1px rgba(59,130,246,.6);}
+    80%{box-shadow:0 0 10px 1px rgba(168,85,247,.6);}
+    100%{box-shadow:0 0 10px 1px rgba(239,68,68,.6);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .rec-latest.fx-straight,.rec-latest.fx-upset,.rec-latest.fx-rainbow{animation:none;}
+  }
