@@ -209,6 +209,45 @@ function eventCardHtml(ev, onlyDay){
           <span class="attend-breakdown-label">${label}</span>
           <span class="attend-breakdown-names">${list.length ? list.map(n=>`<span class="name-chip ${cls}">${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`).join('') : '<span class="attend-breakdown-empty">–</span>'}</span>
         </div>`;
+      // 出席登録したメンバーは、最高MRのランク帯ごとにグループ分けして、名前の横にランクアイコンを表示する
+      const attendYesRows = (list) => {
+        if(list.length === 0){
+          return `<div class="attend-breakdown-row"><span class="attend-breakdown-label">出席</span><span class="attend-breakdown-names"><span class="attend-breakdown-empty">–</span></span></div>`;
+        }
+        const tiersDesc = MR_RANK_TIERS.slice().reverse();
+        const buckets = tiersDesc.map(t => ({tier:t, names:[]}));
+        const noRank = [];
+        list.forEach(n=>{
+          const p = data.players[n];
+          if(p && p.maxMR && String(p.maxMR).trim()!==''){
+            const info = getMRRankInfo(p.maxMR);
+            const bucket = buckets.find(b=>b.tier.name===info.name);
+            if(bucket) bucket.names.push(n); else noRank.push(n);
+          } else {
+            noRank.push(n);
+          }
+        });
+        const nameChip = (n, icon) => `<span class="name-chip yes">${icon ? icon+' ' : ''}${escapeHtml(n)}${isAdminUnlocked() ? `<button class="name-chip-remove" onclick="adminDeleteAttendance('${ev.id}','${day}','${escapeHtml(n)}')" title="出欠を削除">×</button>` : ''}</span>`;
+        let rows = '';
+        buckets.forEach(b=>{
+          if(b.names.length===0) return;
+          b.names.sort((x,y)=>x.localeCompare(y,'ja'));
+          rows += `
+            <div class="attend-breakdown-row">
+              <span class="attend-breakdown-label">${b.tier.icon} ${b.tier.name}</span>
+              <span class="attend-breakdown-names">${b.names.map(n=>nameChip(n, '')).join('')}</span>
+            </div>`;
+        });
+        if(noRank.length>0){
+          noRank.sort((x,y)=>x.localeCompare(y,'ja'));
+          rows += `
+            <div class="attend-breakdown-row">
+              <span class="attend-breakdown-label">未登録</span>
+              <span class="attend-breakdown-names">${noRank.map(n=>nameChip(n, '')).join('')}</span>
+            </div>`;
+        }
+        return rows;
+      };
       // 出席期限を過ぎたら、回答用のボタンは非表示にし、
       // 「未定」「観戦」「出席(参加メンバー)」のみを確認用に表示する(欠席の内訳は表示しない)
       const buttonsHtml = deadlinePassed ? '' : `
@@ -222,10 +261,10 @@ function eventCardHtml(ev, onlyDay){
           <div class="attend-breakdown">
             ${chipRow('未定', groups.maybe, 'maybe')}
             ${chipRow('観戦', groups.watch, 'watch')}
-            ${chipRow('参加メンバー', groups.yes, 'yes')}
+            ${attendYesRows(groups.yes)}
           </div>` : `
           <div class="attend-breakdown">
-            ${chipRow('出席', groups.yes, 'yes')}
+            ${attendYesRows(groups.yes)}
             ${chipRow('欠席', groups.no, 'no')}
             ${chipRow('観戦', groups.watch, 'watch')}
             ${chipRow('未定', groups.maybe, 'maybe')}
@@ -488,11 +527,11 @@ function getEventDayAttendees(eventId, day){
     .sort((a,b)=>a.localeCompare(b,'ja'));
 }
 
-// 名前が登録メンバーの場合、そのメンバーに紐づくMR(現在のMR、なければ最大MR)を返す
+// 名前が登録メンバーの場合、そのメンバーに紐づくMR(最高MRを優先。未登録なら現在のMR)を返す
 function registeredPlayerMR(name){
   const p = data.players[name];
   if(!p) return null;
-  return p.currentMR || p.maxMR || '';
+  return p.maxMR || p.currentMR || '';
 }
 
 function openResultModal(eventId, day){
@@ -527,7 +566,7 @@ function resultModalOpponentMRBoxHtml(){
   const name = resultModalOpponentName.trim();
   const mr = name ? registeredPlayerMR(name) : null;
   if(name && mr !== null){
-    return `<div class="attend-toggle-hint">🔗 登録メンバーのMRを自動反映します${mr ? `(現在のMR: ${escapeHtml(mr)})` : '(MR未登録)'}</div>`;
+    return `<div class="attend-toggle-hint">🔗 登録メンバーのMRを自動反映します${mr ? `(最高MR: ${escapeHtml(mr)})` : '(MR未登録)'}</div>`;
   }
   return `
     <label>相手のMR(任意)</label>

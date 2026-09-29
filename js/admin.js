@@ -189,7 +189,7 @@ function adminMemberEditHtml(){
     const p = data.players[n];
     return `
       <div class="match-edit-row" style="flex-wrap:wrap;">
-        <div style="flex:1;min-width:90px;font-weight:800;font-size:13px;">${escapeHtml(n)}</div>
+        <div style="flex:1;min-width:90px;font-weight:800;font-size:13px;">${escapeHtml(n)} ${mrRankBadgeHtml(p, true)}</div>
         <input type="text" value="${escapeHtml(p.mainGoal||'')}" placeholder="大目標"
           onchange="adminUpdatePlayerField('${escapeHtml(n)}','mainGoal',this.value)">
         <input type="text" value="${escapeHtml(p.maxMR||'')}" placeholder="最高MR" style="max-width:90px;"

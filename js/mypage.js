@@ -82,7 +82,7 @@ function renderMyPageWithPlayer(){
 
   let html = `
     <div class="card">
-      <h2>${escapeHtml(currentPlayer)}さんのマイページ</h2>
+      <h2>${escapeHtml(currentPlayer)}さんのマイページ ${mrRankBadgeHtml(p, false)}</h2>
       ${currentPlayer !== getLoggedInPlayer() ? `<div style="font-size:12px;color:var(--gold);margin-top:4px;">⚙️ 管理者として編集中です</div>` : ''}
     </div>
     <div class="card">

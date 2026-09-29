@@ -463,6 +463,23 @@ function getPlayerLatestMatch(p, categories){
   return matches.reduce((latest, m) => (!latest || new Date(m.date) > new Date(latest.date)) ? m : latest, null);
 }
 
+// 「自分の最高MRより格上の相手に、ストレート勝利(1-0を除く)した」かどうかを判定する。
+// 直近の対戦結果カードに特別演出をつけるために使う。
+function isNotableStraightWin(match, myMaxMR){
+  if(!match || match.result !== 'win') return false;
+  if(!match.opponentMR || !myMaxMR) return false;
+  const oppMR = Number(match.opponentMR);
+  const myMax = Number(myMaxMR);
+  if(isNaN(oppMR) || isNaN(myMax) || oppMR <= myMax) return false;
+  if(!match.score) return false;
+  const parts = String(match.score).split('-').map(s=>parseInt(String(s).trim(),10));
+  if(parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
+  const [myScore, oppScore] = parts;
+  if(oppScore !== 0 || myScore <= 0) return false; // ストレート勝利のみ
+  if(myScore === 1) return false; // 1-0は除外
+  return true;
+}
+
 // 指定カテゴリの予定(出欠確認ありのもの)について、開催日数を分母、実際に「出席」と
 // 回答した日数を分子にして参加率(%)を計算する。対象の予定が1件も無ければnullを返す。
 function getPlayerParticipationRate(name, categories){
@@ -613,6 +630,33 @@ function rankDeltaBadgeHtml(prevRank, currentRank){
   const up = diff > 0;
   const arrow = up ? '▲' : '▼';
   return `<span class="rank-delta-badge ${up ? 'up' : 'down'}">${arrow}${Math.abs(diff)}位</span>`;
+}
+
+// 最高MR(maxMR)に応じたランク帯。全画面共通のランク名称・色・アイコン表示に使う。
+// ※アイコンは絵文字による仮のものです。デザイン素材(参考画像)を反映する場合は差し替えてください。
+const MR_RANK_TIERS = [
+  {min: 0,    max: 1599,     name: 'MASTER',          color: '#4a90d9', icon: '🔷'},
+  {min: 1600, max: 1699,     name: 'HIGH MASTER',     color: '#9b59d0', icon: '🟣'},
+  {min: 1700, max: 1799,     name: 'GRAND MASTER',    color: '#e67e22', icon: '🟠'},
+  {min: 1800, max: 2249,     name: 'ULTIMATE MASTER', color: '#e6395a', icon: '🔴'},
+  {min: 2250, max: Infinity, name: 'LEGEND',          color: '#e8b23d', icon: '👑'}
+];
+
+// 最高MRの値からランク帯情報({min,max,name,color,icon})を返す
+function getMRRankInfo(mr){
+  const v = Number(mr) || 0;
+  return MR_RANK_TIERS.find(t => v >= t.min && v <= t.max) || MR_RANK_TIERS[0];
+}
+
+// 最高MR(p.maxMR)に基づくランク帯バッジのHTMLを返す。maxMR未登録ならnullを返す。
+// compact=trueの場合はアイコンのみ(スペースが限られる場所用)
+function mrRankBadgeHtml(p, compact){
+  if(!p || !p.maxMR || String(p.maxMR).trim()==='') return '';
+  const info = getMRRankInfo(p.maxMR);
+  if(compact){
+    return `<span title="${info.name}(最高MR基準)" style="font-size:13px;">${info.icon}</span>`;
+  }
+  return `<span class="pill" style="background:${info.color}22;color:${info.color};font-weight:700;">${info.icon} ${info.name}</span>`;
 }
 
 function getMRColor(mr){

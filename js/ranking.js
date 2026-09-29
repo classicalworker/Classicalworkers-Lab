@@ -54,7 +54,7 @@ function renderRanking(){
           ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
-              <span class="rank-name">${escapeHtml(p.name)}</span>
+              <span class="rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
               <span class="rank-meta" style="font-size:24px;font-weight:800;">${p.count}<span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:2px;">戦</span>${countBadge}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
@@ -106,7 +106,7 @@ function renderRanking(){
           ${data.players[p.name].icon ? `<img class="member-icon" src="${data.players[p.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
-              <span class="rank-name">${escapeHtml(p.name)}</span>
+              <span class="rank-name">${escapeHtml(p.name)} ${mrRankBadgeHtml(data.players[p.name], true)}</span>
               <span class="rank-meta" style="font-size:26px;font-weight:800;color:${color}">${p.mr}${mrBadge}</span>
             </div>
             ${memberMetaChipsHtml(data.players[p.name])}
@@ -183,7 +183,7 @@ function renderRanking(){
           ${data.players[info.name].icon ? `<img class="member-icon" src="${data.players[info.name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
           <div class="rank-body">
             <div class="rank-top">
-              <span class="rank-name">${escapeHtml(info.name)}</span>
+              <span class="rank-name">${escapeHtml(info.name)} ${mrRankBadgeHtml(data.players[info.name], true)}</span>
               ${referenceBadge}
             </div>
             <div style="display:flex;gap:8px;margin-top:6px;">
@@ -238,6 +238,7 @@ function renderRanking(){
 
   // 規定到達済みのメンバーを優先し、その中で勝率(同率なら勝ち数)が高い順に並べる。
   // 規定未到達のメンバーは、勝率が上であっても規定到達者より下にくる。
+  // ※「参考記録」扱い(主催など)の特別対応は総合成績タブのみで行うため、ここでは通常通り順位に含める。
   withMatchesInfo.sort((a,b)=>{
     if(a.reached !== b.reached) return a.reached ? -1 : 1;
     if(b.s.winRate !== a.s.winRate) return b.s.winRate - a.s.winRate;
@@ -248,12 +249,7 @@ function renderRanking(){
   const infoByName = {};
   withMatchesInfo.forEach(x=>{ infoByName[x.name] = x; });
 
-  const orderedAll = [...withMatchesInfo.map(x=>x.name), ...withoutMatches];
-
-  // 主催など「参考記録」扱いのメンバーは最下段に固定する
-  const referenceNames = orderedAll.filter(n => RANKING_REFERENCE_ONLY_NAMES.includes(n));
-  const rankedNames = orderedAll.filter(n => !RANKING_REFERENCE_ONLY_NAMES.includes(n));
-  const ordered = [...rankedNames, ...referenceNames];
+  const ordered = [...withMatchesInfo.map(x=>x.name), ...withoutMatches];
 
   if(ordered.length===0){
     el.innerHTML = subTabsHtml + recordTabsHtml + '<div class="empty">まだ参加者がいません。マイページから登録してください。</div>';
@@ -262,40 +258,45 @@ function renderRanking(){
 
   let html = '';
   ordered.forEach((name, i)=>{
-    const isReference = RANKING_REFERENCE_ONLY_NAMES.includes(name);
     const info = infoByName[name];
+    const p = data.players[name];
     const s = info ? info.s : {total:0, wins:0, winRate:0};
     const interCount = info ? info.interCount : 0;
     const reached = info ? info.reached : false;
-    const rankLabel = isReference ? '—' : (s.total>0 ? (i+1) : '–');
+    const rankLabel = s.total>0 ? (i+1) : '–';
 
-    // 直近の対戦結果(対戦相手を大きく、勝敗は小さく添える)
-    const latest = getPlayerLatestMatch(data.players[name], categories);
+    // 直近の対戦結果(対戦相手を大きく、勝敗は小さく添える。大会名・相手MRも表示する)
+    const latest = getPlayerLatestMatch(p, categories);
+    // 自分の最高MRより格上の相手にストレート勝利(1-0を除く)した場合は特別演出をつける
+    const isUpsetWin = isNotableStraightWin(latest, p.maxMR);
+    const latestDetailHtml = latest
+      ? `<div style="font-size:9px;color:var(--text-dim);margin-top:3px;">${latest.eventName ? `🏷 ${escapeHtml(latest.eventName)}` : ''}${(latest.eventName && latest.opponentMR) ? '　' : ''}${latest.opponentMR ? `相手MR ${escapeHtml(latest.opponentMR)}` : ''}</div>`
+      : '';
     const latestMatchBoxHtml = `
-      <div style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">直近の対戦結果</div>
+      <div class="${isUpsetWin ? 'latest-match-upset' : ''}" style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">
+        <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">直近の対戦結果${isUpsetWin ? ' 🔥' : ''}</div>
         ${latest
           ? `<div style="font-size:16px;font-weight:800;color:var(--text);">vs ${escapeHtml(latest.opponent||'')}</div>
-             <div style="font-size:10px;font-weight:700;color:${latest.result==='win'?'var(--win)':'var(--loss)'};margin-top:2px;">${latest.result==='win'?'勝ち':'負け'}${latest.score?`(${escapeHtml(latest.score)})`:''}</div>`
+             <div style="font-size:10px;font-weight:700;color:${latest.result==='win'?'var(--win)':'var(--loss)'};margin-top:2px;">${latest.result==='win'?'勝ち':'負け'}${latest.score?`(${escapeHtml(latest.score)})`:''}</div>
+             ${latestDetailHtml}
+             ${isUpsetWin ? `<div style="font-size:9px;font-weight:800;color:var(--gold);margin-top:3px;">⚡格上ストレート勝利</div>` : ''}`
           : `<div style="font-size:14px;font-weight:700;color:var(--text-dim);margin-top:4px;">記録なし</div>`
         }
       </div>`;
 
-    const badgeHtml = isReference
-      ? `<span class="pill" style="background:rgba(232,178,61,.12);color:var(--gold);">主催・参考記録</span>`
-      : (s.total>0
-          ? (reached
-              ? `<span class="pill" style="background:rgba(var(--win-rgb),.12);color:var(--win);">規定到達</span>`
-              : `<span class="pill" style="background:rgba(var(--loss-rgb),.1);color:var(--loss);">規定未到達</span>`)
-          : '');
+    const regulationBadge = s.total>0
+      ? (reached
+          ? `<span class="pill" style="background:rgba(var(--win-rgb),.12);color:var(--win);">規定到達</span>`
+          : `<span class="pill" style="background:rgba(var(--loss-rgb),.1);color:var(--loss);">規定未到達</span>`)
+      : '';
 
     html += `
-      <div class="rank-card ${!isReference && i===0 && s.total>0 && reached ? 'r1':''}" onclick="goToMember('${name.replace(/'/g,"\\'")}')">
+      <div class="rank-card ${i===0 && s.total>0 && reached ? 'r1':''}" onclick="goToMember('${name.replace(/'/g,"\\'")}')">
         <div class="rank-num">${rankLabel}</div>
-        ${data.players[name].icon ? `<img class="member-icon" src="${data.players[name].icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
+        ${p.icon ? `<img class="member-icon" src="${p.icon}" alt="">` : `<div class="member-icon" style="display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>`}
         <div class="rank-body">
           <div class="rank-top">
-            <span class="rank-name">${escapeHtml(name)}</span>
+            <span class="rank-name">${escapeHtml(name)} ${mrRankBadgeHtml(p, true)}</span>
             <span class="rank-meta">${s.total}戦 ${s.wins}勝</span>
           </div>
           <div style="display:flex;gap:8px;margin-top:6px;">
@@ -306,10 +307,10 @@ function renderRanking(){
             ${latestMatchBoxHtml}
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;">
-            ${isReference ? '' : `<span style="font-size:11px;color:var(--text-dim);">規定試合 ${required}試合中 ${interCount}試合(${tagLabel})</span>`}
-            ${badgeHtml}
+            <span style="font-size:11px;color:var(--text-dim);">規定試合 ${required}試合中 ${interCount}試合(${tagLabel})</span>
+            ${regulationBadge}
           </div>
-          ${memberMetaChipsHtml(data.players[name])}
+          ${memberMetaChipsHtml(p)}
         </div>
       </div>`;
   });
