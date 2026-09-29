@@ -717,6 +717,39 @@
   .top-rank-medal-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
   .top-rank-medal-wrap .rank-delta-badge{margin-left:0;font-size:9px;padding:0 4px;}
 
+  /* -- 対戦成績ランキングカード(総合成績): 参加率・戦績・直近の対戦結果 -- */
+  .top-card-subnote{font-size:11px;color:var(--text-dim);margin:-2px 0 8px;}
+  .top-rank-item--record{cursor:pointer;transition:border-color .15s,background .15s;}
+  .top-rank-item--record:hover{border-color:var(--gold);}
+  .top-rank-body--record{flex-direction:column;align-items:stretch;gap:3px;}
+  .top-rank-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0 8px;min-width:0;}
+  .top-rank-row .top-rank-name{flex:1 0 auto;max-width:100%;}
+  .top-rank-record{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
+  .top-rank-item.rank1 .top-rank-record{font-size:12px;color:var(--text);}
+  .top-rank-latest{
+    display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin-top:2px;padding:4px 8px;
+    border-radius:7px;background:rgba(255,255,255,.04);border:1px solid var(--panel-border);font-size:12px;
+  }
+  .top-rank-latest.none{color:var(--text-dim);}
+  .top-rank-latest-label{font-size:10px;font-weight:700;color:var(--text-dim);}
+  .top-rank-latest-opp{font-weight:800;color:var(--text);min-width:0;word-break:break-all;}
+  .top-rank-latest-result{font-family:var(--font-mono);font-weight:800;white-space:nowrap;}
+  .top-rank-latest-result.win{color:var(--win);} .top-rank-latest-result.loss{color:var(--loss);}
+  .top-rank-latest-event{font-size:11px;color:var(--text-dim);margin-left:auto;word-break:break-all;}
+  .top-rank-latest .rec-fx-label{font-size:10px;padding:0 7px;}
+  .top-rank-latest.fx-straight{
+    background:linear-gradient(135deg, rgba(250,204,21,.22), rgba(250,204,21,.04));border-color:rgba(250,204,21,.8);
+  }
+  .top-rank-latest.fx-upset{
+    background:linear-gradient(135deg, rgba(239,68,68,.24), rgba(239,68,68,.04));border-color:rgba(239,68,68,.85);
+  }
+  .top-rank-latest.fx-rainbow{
+    border:1px solid transparent;
+    background:
+      linear-gradient(135deg, rgba(40,32,18,.96), rgba(24,21,15,.96)) padding-box,
+      linear-gradient(90deg,#ef4444,#f97316,#facc15,#22c55e,#3b82f6,#a855f7,#ef4444) border-box;
+  }
+
   /* -- メンバーカード: ランダムスポットライト表示(3名) -- */
   .top-spotlight-list{display:flex;flex-direction:column;gap:10px;margin-bottom:10px;}
   .top-spotlight-item{
