@@ -647,11 +647,11 @@ function rankDeltaBadgeHtml(prevRank, currentRank){
 // 最高MR(maxMR)に応じたランク帯。全画面共通のランク名称・色・アイコン表示に使う。
 // ※アイコンは絵文字による仮のものです。デザイン素材(参考画像)を反映する場合は差し替えてください。
 const MR_RANK_TIERS = [
-  {min: 0,    max: 1599,     name: 'MASTER',          short: 'MASTER',   color: '#22c55e'},
-  {min: 1600, max: 1699,     name: 'HIGH MASTER',     short: 'HIGH',     color: '#3b82f6'},
-  {min: 1700, max: 1799,     name: 'GRAND MASTER',    short: 'GRAND',    color: '#eab308'},
-  {min: 1800, max: 2249,     name: 'ULTIMATE MASTER', short: 'ULTIMATE', color: '#ec4899'},
-  {min: 2250, max: Infinity, name: 'LEGEND',          short: 'LEGEND',   color: '#e8b23d'}
+  {min: 0,    max: 1599,     name: 'MASTER',          short: 'MASTER',   color: '#eab308'}, // 黄
+  {min: 1600, max: 1699,     name: 'HIGH MASTER',     short: 'HIGH',     color: '#22c55e'}, // 緑
+  {min: 1700, max: 1799,     name: 'GRAND MASTER',    short: 'GRAND',    color: '#3b82f6'}, // 青
+  {min: 1800, max: 2249,     name: 'ULTIMATE MASTER', short: 'ULTIMATE', color: '#a855f7'}, // 紫
+  {min: 2250, max: Infinity, name: 'LEGEND',          short: 'LEGEND',   color: '#ef4444'}  // 赤
 ];
 
 // 最高MRの値からランク帯情報({min,max,name,short,color})を返す
@@ -660,17 +660,21 @@ function getMRRankInfo(mr){
   return MR_RANK_TIERS.find(t => v >= t.min && v <= t.max) || MR_RANK_TIERS[0];
 }
 
-// 最高MR(p.maxMR)に基づくランク帯バッジのHTMLを返す。maxMR未登録ならnullを返す。
-// 専用フォント(SSF4Abuket)・ランクごとの色で表示する(絵文字アイコンは使用しない)。
-// compact=trueの場合は省略表記(ULTIMATE/GRAND/HIGH/MASTER/LEGEND、スペースが限られる場所用)
-function mrRankBadgeHtml(p, compact){
+// ランク名を「白抜き+ランク色の縁取り」文字で返す(見た目は css の .mr-rank-text で定義)
+// useShort=true のときは省略表記(出席確認の内訳でのみ使用)
+function mrRankTextHtml(info, useShort, extraClass){
+  const label = useShort ? info.short : info.name;
+  return `<span class="mr-rank-text ${extraClass||''}" style="--rank-color:${info.color};" title="${info.name}(最高MR基準)">${label}</span>`;
+}
+
+// 最高MR(p.maxMR)に基づくランク帯バッジのHTMLを返す。maxMR未登録なら空文字を返す。
+// 省略表記は出席確認の内訳だけで使うため、ここでは常に正式名称(HIGH MASTER など)で表示する。
+// inline=true: 名前の横に並べる文字表示 / inline=false: 枠付きのピル表示(マイページ見出し・メンバー詳細)
+function mrRankBadgeHtml(p, inline){
   if(!p || !p.maxMR || String(p.maxMR).trim()==='') return '';
   const info = getMRRankInfo(p.maxMR);
-  const fontStyle = "font-family:'SSF4Abuket','Noto Sans JP',sans-serif;letter-spacing:.03em;";
-  if(compact){
-    return `<span title="${info.name}(最高MR基準)" style="${fontStyle}font-size:11px;font-weight:700;color:${info.color};">${info.short}</span>`;
-  }
-  return `<span class="pill" style="${fontStyle}background:${info.color}22;color:${info.color};font-weight:700;">${info.name}</span>`;
+  if(inline) return mrRankTextHtml(info, false, 'inline');
+  return `<span class="mr-rank-pill" style="--rank-color:${info.color};">${mrRankTextHtml(info, false)}</span>`;
 }
 
 function getMRColor(mr){

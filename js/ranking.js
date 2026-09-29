@@ -277,7 +277,7 @@ function renderRanking(){
           ? '⚡ストレート勝利'
           : '';
     const latestDetailHtml = latest
-      ? `<div style="font-size:9px;color:var(--text-dim);margin-top:3px;">${latest.eventName ? `🏷 ${escapeHtml(latest.eventName)}` : ''}${(latest.eventName && latest.opponentMR) ? '　' : ''}${latest.opponentMR ? `相手MR ${escapeHtml(latest.opponentMR)}` : ''}</div>`
+      ? `<div class="latest-match-detail">${latest.eventName ? `<div class="latest-match-event">🏷 ${escapeHtml(latest.eventName)}</div>` : ''}${latest.opponentMR ? `<div class="latest-match-oppmr">相手MR ${escapeHtml(latest.opponentMR)}</div>` : ''}</div>`
       : '';
     const latestMatchBoxHtml = `
       <div class="${notableInfo.notable ? 'latest-match-upset' : ''}" style="flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.04);border-radius:8px;">

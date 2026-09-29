@@ -234,7 +234,7 @@ function eventCardHtml(ev, onlyDay){
           b.names.sort((x,y)=>x.localeCompare(y,'ja'));
           rows += `
             <div class="attend-breakdown-row">
-              <span class="attend-breakdown-label" style="font-family:'SSF4Abuket','Noto Sans JP',sans-serif;letter-spacing:.03em;color:${b.tier.color};">${b.tier.name}</span>
+              <span class="attend-breakdown-label rank-label">${mrRankTextHtml(b.tier, true)}</span>
               <span class="attend-breakdown-names">${b.names.map(n=>nameChip(n, '')).join('')}</span>
             </div>`;
         });
