@@ -548,36 +548,79 @@ function topBattleRankingCardHtml(){
   return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
-// ---- ランキングカード: 対戦成績3位まで表示 ----
+// ---- ランキングカード: 対戦成績(総合成績)の上位5名を表示 ----
+// ランキングページの「📋 総合成績」と同じ並び(参加率が高い順 → 勝率 → 勝ち数)。
+// 集計対象は対抗戦+身内イベント。主催など「参考記録」扱いのメンバーは順位から外す。
+// 各メンバーの参加率・戦績と、直近の対戦結果(対抗戦/身内イベント問わず)を表示する。
 
 function topRankingCardHtml(){
-  const names = Object.keys(data.players);
-  const withMatches = names
-    .map(n => ({name:n, stats: computeStats(data.players[n])}))
-    .filter(p => p.stats.total > 0)
-    .sort((a,b)=> b.stats.winRate - a.stats.winRate || b.stats.wins - a.stats.wins);
+  const categories = ['interteam','internal'];
+  const ranked = Object.keys(data.players)
+    .filter(n => !RANKING_REFERENCE_ONLY_NAMES.includes(n))
+    .map(n => ({
+      name:n,
+      stats: computeStatsForCategory(data.players[n], categories),
+      participation: getPlayerParticipationRate(n, categories)
+    }))
+    .filter(p => p.stats.total > 0 || (p.participation || 0) > 0)
+    .sort((a,b)=>{
+      const pa = a.participation===null ? -1 : a.participation;
+      const pb = b.participation===null ? -1 : b.participation;
+      if(pb !== pa) return pb - pa;
+      if(b.stats.winRate !== a.stats.winRate) return b.stats.winRate - a.stats.winRate;
+      return b.stats.wins - a.stats.wins;
+    });
 
-  if(withMatches.length===0){
+  if(ranked.length===0){
     return `<div class="top-card-empty-msg">まだ対戦成績が記録されていません。</div>`;
   }
 
   const medals = ['🥇','🥈','🥉'];
-  const itemsHtml = withMatches.slice(0,5).map((p,i)=>{
+  const itemsHtml = ranked.slice(0,5).map((p,i)=>{
     const player = data.players[p.name];
     const iconHtml = player.icon
       ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
       : `<div class="top-rank-icon-ph">👤</div>`;
+    const participationText = p.participation!==null ? `${p.participation.toFixed(0)}%` : '—';
+    const recordText = p.stats.total > 0
+      ? `${p.stats.total}戦${p.stats.wins}勝(勝率${p.stats.winRate.toFixed(0)}%)`
+      : '戦績なし';
+
+    // 直近の対戦結果(対抗戦・身内イベント問わず、開催日が新しい試合)
+    const latest = getPlayerLatestMatch(player, categories);
+    let latestHtml = `<div class="top-rank-latest none">直近の対戦:記録なし</div>`;
+    if(latest){
+      const fxInfo = getNotableWinInfo(latest, player.maxMR);
+      const fx = fxInfo.isUpset && fxInfo.isStraight ? {cls:'fx-rainbow', label:'格上ストレート勝利'}
+        : fxInfo.isUpset ? {cls:'fx-upset', label:'格上撃破'}
+        : fxInfo.isStraight ? {cls:'fx-straight', label:'ストレート勝利'}
+        : null;
+      const isWin = latest.result==='win';
+      latestHtml = `
+        <div class="top-rank-latest ${fx ? fx.cls : ''}">
+          <span class="top-rank-latest-label">直近</span>
+          <span class="top-rank-latest-opp">vs ${escapeHtml(latest.opponent||'')}</span>
+          <span class="top-rank-latest-result ${isWin?'win':'loss'}">${isWin?'WIN':'LOSE'}${latest.score?` ${escapeHtml(latest.score)}`:''}</span>
+          ${fx ? `<span class="rec-fx-label">${fx.label}</span>` : ''}
+          ${latest.eventName ? `<span class="top-rank-latest-event">${escapeHtml(latest.eventName)}</span>` : ''}
+        </div>`;
+    }
+
     return `
-      <div class="top-rank-item rank${i+1}">
+      <div class="top-rank-item top-rank-item--record rank${i+1}" onclick="goToMember('${p.name.replace(/'/g,"\\'")}')" role="button" tabindex="0">
         <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
         ${iconHtml}
-        <div class="top-rank-body">
-          <span class="top-rank-name">${escapeHtml(p.name)}</span>
-          <span class="top-rank-rate">勝率 ${p.stats.winRate.toFixed(0)}% (${p.stats.total}戦${p.stats.wins}勝)</span>
+        <div class="top-rank-body top-rank-body--record">
+          <div class="top-rank-row">
+            <span class="top-rank-name">${escapeHtml(p.name)}</span>
+            <span class="top-rank-rate">参加率 ${participationText}</span>
+          </div>
+          <div class="top-rank-record">${recordText}</div>
+          ${latestHtml}
         </div>
       </div>`;
   }).join('');
-  return `<div class="top-rank-list">${itemsHtml}</div>`;
+  return `<div class="top-card-subnote">総合成績(対抗戦+身内イベント)・参加率順</div><div class="top-rank-list">${itemsHtml}</div>`;
 }
 
 // ---- お知らせカード: 予定の登録・目標達成などの最新の出来事を表示 ----
