@@ -1,3 +1,11 @@
+  /* MRランク帯バッジ用フォント */
+  @font-face{
+    font-family:'SSF4Abuket';
+    src:url('fonts/SSF4_ABUKET.otf') format('opentype');
+    font-weight:normal;
+    font-style:normal;
+    font-display:swap;
+  }
   :root{
     /* ==== ゴールド×ブラック配色(CLASSICAL WORKERロゴを参考) ==== */
     --bg:#0b0a08;

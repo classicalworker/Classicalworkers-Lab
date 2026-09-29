@@ -647,28 +647,30 @@ function rankDeltaBadgeHtml(prevRank, currentRank){
 // 最高MR(maxMR)に応じたランク帯。全画面共通のランク名称・色・アイコン表示に使う。
 // ※アイコンは絵文字による仮のものです。デザイン素材(参考画像)を反映する場合は差し替えてください。
 const MR_RANK_TIERS = [
-  {min: 0,    max: 1599,     name: 'MASTER',          color: '#4a90d9', icon: '🔷'},
-  {min: 1600, max: 1699,     name: 'HIGH MASTER',     color: '#9b59d0', icon: '🟣'},
-  {min: 1700, max: 1799,     name: 'GRAND MASTER',    color: '#e67e22', icon: '🟠'},
-  {min: 1800, max: 2249,     name: 'ULTIMATE MASTER', color: '#e6395a', icon: '🔴'},
-  {min: 2250, max: Infinity, name: 'LEGEND',          color: '#e8b23d', icon: '👑'}
+  {min: 0,    max: 1599,     name: 'MASTER',          short: 'MASTER',   color: '#22c55e'},
+  {min: 1600, max: 1699,     name: 'HIGH MASTER',     short: 'HIGH',     color: '#3b82f6'},
+  {min: 1700, max: 1799,     name: 'GRAND MASTER',    short: 'GRAND',    color: '#eab308'},
+  {min: 1800, max: 2249,     name: 'ULTIMATE MASTER', short: 'ULTIMATE', color: '#ec4899'},
+  {min: 2250, max: Infinity, name: 'LEGEND',          short: 'LEGEND',   color: '#e8b23d'}
 ];
 
-// 最高MRの値からランク帯情報({min,max,name,color,icon})を返す
+// 最高MRの値からランク帯情報({min,max,name,short,color})を返す
 function getMRRankInfo(mr){
   const v = Number(mr) || 0;
   return MR_RANK_TIERS.find(t => v >= t.min && v <= t.max) || MR_RANK_TIERS[0];
 }
 
 // 最高MR(p.maxMR)に基づくランク帯バッジのHTMLを返す。maxMR未登録ならnullを返す。
-// compact=trueの場合はアイコンのみ(スペースが限られる場所用)
+// 専用フォント(SSF4Abuket)・ランクごとの色で表示する(絵文字アイコンは使用しない)。
+// compact=trueの場合は省略表記(ULTIMATE/GRAND/HIGH/MASTER/LEGEND、スペースが限られる場所用)
 function mrRankBadgeHtml(p, compact){
   if(!p || !p.maxMR || String(p.maxMR).trim()==='') return '';
   const info = getMRRankInfo(p.maxMR);
+  const fontStyle = "font-family:'SSF4Abuket','Noto Sans JP',sans-serif;letter-spacing:.03em;";
   if(compact){
-    return `<span title="${info.name}(最高MR基準)" style="font-size:13px;">${info.icon}</span>`;
+    return `<span title="${info.name}(最高MR基準)" style="${fontStyle}font-size:11px;font-weight:700;color:${info.color};">${info.short}</span>`;
   }
-  return `<span class="pill" style="background:${info.color}22;color:${info.color};font-weight:700;">${info.icon} ${info.name}</span>`;
+  return `<span class="pill" style="${fontStyle}background:${info.color}22;color:${info.color};font-weight:700;">${info.name}</span>`;
 }
 
 function getMRColor(mr){
