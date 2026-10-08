@@ -965,10 +965,49 @@ const CHARACTER_LIST = [
   '舞','エレナ','サガット','C.ヴァイパー','アレックス','イングリッド','ヤスミン','アルジュン'
 ];
 
+// キャラクターごとのバッジ配色(衣装・技のイメージ色。文字は背景に対して読みやすいコントラストを確保)
+const CHARACTER_COLORS = {
+  'リュウ':{bg:'#f2efe6', fg:'#c8102e'},
+  'ルーク':{bg:'#4b5a2a', fg:'#f3e9c6'},
+  'ジェイミー':{bg:'#145858', fg:'#ffd23f'},
+  '春麗':{bg:'#1d4fa8', fg:'#f5d36b'},
+  'ガイル':{bg:'#3f5222', fg:'#f4d35e'},
+  'キンバリー':{bg:'#ff7a1a', fg:'#2b1650'},
+  'ジュリ':{bg:'#3a1450', fg:'#ff5cad'},
+  'ケン':{bg:'#a50d25', fg:'#ffd23f'},
+  'ブランカ':{bg:'#164a14', fg:'#ffa848'},
+  'ダルシム':{bg:'#a8430a', fg:'#fff2c2'},
+  'E.本田':{bg:'#2546a0', fg:'#ffffff'},
+  'ディージェイ':{bg:'#005a22', fg:'#fed100'},
+  'マノン':{bg:'#f7d6e0', fg:'#1f2a5a'},
+  'マリーザ':{bg:'#86201a', fg:'#f2c14e'},
+  'JP':{bg:'#2b2240', fg:'#c9b6ff'},
+  'ザンギエフ':{bg:'#7f1d1d', fg:'#fde68a'},
+  'リリー':{bg:'#14837b', fg:'#ffffff'},
+  'キャミィ':{bg:'#1f6b34', fg:'#ffffff'},
+  'ラシード':{bg:'#e3f4f2', fg:'#0b6a70'},
+  'A.K.I.':{bg:'#5b2a86', fg:'#b6f24a'},
+  'エド':{bg:'#1b2a4a', fg:'#6fc3ff'},
+  '豪鬼':{bg:'#1a0a0a', fg:'#ff4a3d'},
+  'ベガ':{bg:'#9b111e', fg:'#ead7ff'},
+  'テリー':{bg:'#0c2f70', fg:'#ff8a7f'},
+  '舞':{bg:'#d81e3a', fg:'#fff3f5'},
+  'エレナ':{bg:'#ffffff', fg:'#a14a07'},
+  'サガット':{bg:'#3a2a1a', fg:'#f2a43a'},
+  'C.ヴァイパー':{bg:'#0e1726', fg:'#ff6a45'},
+  'アレックス':{bg:'#202d45', fg:'#ff7a66'},
+  'イングリッド':{bg:'#fff6d5', fg:'#b8390b'},
+  'ヤスミン':{bg:'#0f5e6e', fg:'#f7d58b'},
+  'アルジュン':{bg:'#f59e0b', fg:'#3b0764'},
+};
+
 // メインキャラクターのバッジ(サブは表示しない)
 function characterChipHtml(p){
   const main = p && p.mainCharacter ? String(p.mainCharacter).trim() : '';
-  return main ? `<span class="character-chip">🥊 ${escapeHtml(main)}</span>` : '';
+  if(!main) return '';
+  const c = CHARACTER_COLORS[main];
+  const style = c ? ` style="background:${c.bg};color:${c.fg};border-color:${c.fg}55"` : '';
+  return `<span class="character-chip"${style}>${escapeHtml(main)}</span>`;
 }
 
 function deviceChipsHtml(p){
