@@ -539,9 +539,9 @@ function getEventDayAttendees(eventId, day){
 // ===== 出席メンバーの書き出し(スプレッドシート貼り付け用) =====
 // 対抗戦シートの自チーム側の列順「ユーザーコード / 名前 / 操作 / メイン / MR」に合わせて出力する。
 // メインキャラはサイトに登録項目がないため空欄にし、列の位置だけ揃える。
-const ATTENDEE_EXPORT_HEADERS = ['ユーザーコード', '名前', '操作', 'メイン', 'MR'];
+const ATTENDEE_EXPORT_HEADERS = ['ユーザーコード', '名前', '操作', 'メイン', 'MR']; // 画面の表の見出し
 
-// 出席メンバーを最大MRの高い順(未登録は末尾・名前順)に並べて、書き出し用の行を返す
+// 出席メンバーを最大MRの低い順(未登録は末尾・名前順)に並べて、書き出し用の行を返す
 function attendeeExportRows(eventId, day){
   return getEventDayAttendees(eventId, day)
     .map(n=>{
@@ -549,17 +549,12 @@ function attendeeExportRows(eventId, day){
       const mr = String(p.maxMR||'').trim();
       return {
         name: n,
-        mrNum: mr !== '' && !isNaN(Number(mr)) ? Number(mr) : -1,
+        mrNum: mr !== '' && !isNaN(Number(mr)) ? Number(mr) : Infinity,
         cells: [String(p.userCode||'').trim(), n, (p.controlTypes||[]).join('/'), '', mr]
       };
     })
-    .sort((a,b)=> (b.mrNum - a.mrNum) || a.name.localeCompare(b.name,'ja'))
+    .sort((a,b)=> (a.mrNum === b.mrNum ? 0 : (a.mrNum < b.mrNum ? -1 : 1)) || a.name.localeCompare(b.name,'ja'))
     .map(r=>r.cells);
-}
-
-function csvEscapeCell(v){
-  const s = String(v==null ? '' : v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
 }
 
 let attendeeExportFromDay = null;
@@ -585,7 +580,7 @@ function openAttendeeExportModal(eventId, day){
       <h2>📋 出席メンバーの書き出し</h2>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
-    <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日 に「出席」登録した ${rows.length}名(最大MRの高い順)</div>
+    <div class="attend-toggle-hint">「${escapeHtml(ev.title)}」${badge.m}${badge.d}日 に「出席」登録した ${rows.length}名(最大MRの低い順・未登録は最後)</div>
     <div style="overflow-x:auto;margin:10px 0;font-size:12px">
       <table style="border-collapse:collapse;width:100%">
         <thead><tr>${th}</tr></thead>
@@ -593,10 +588,7 @@ function openAttendeeExportModal(eventId, day){
       </table>
     </div>
     ${warn}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <button class="primary" style="flex:1;margin:0" onclick="copyAttendeeExport('${ev.id}','${day}')">📋 コピー(シートに貼り付け)</button>
-      <button class="btn-small" style="flex:1" onclick="downloadAttendeeCsv('${ev.id}','${day}')">⬇ CSVをダウンロード</button>
-    </div>
+    <button class="primary" style="margin-top:12px" onclick="copyAttendeeExport('${ev.id}','${day}')">📋 コピー(シートに貼り付け)</button>
     <div class="attend-toggle-hint">「コピー」は見出しなしでコピーします。対抗戦シートの自チーム側「ユーザーコード」列(C列)の1人目のセルを選んで貼り付けると、各列にそのまま入ります。メインは空欄です。</div>
     ${attendeeExportFromDay ? `<button class="ghost" style="margin-top:10px" onclick="openDayModal('${attendeeExportFromDay}')">← 戻る</button>` : ''}
   `);
@@ -617,26 +609,8 @@ async function copyAttendeeExport(eventId, day){
     ta.select();
     const ok = document.execCommand('copy');
     document.body.removeChild(ta);
-    showToast(ok ? 'コピーしました。シートに貼り付けてください' : 'コピーできませんでした。CSVをダウンロードしてください');
+    showToast(ok ? 'コピーしました。シートに貼り付けてください' : 'コピーできませんでした');
   }
-}
-
-function downloadAttendeeCsv(eventId, day){
-  const ev = data.events.find(e=>e.id===eventId);
-  if(!ev) return;
-  const lines = [ATTENDEE_EXPORT_HEADERS, ...attendeeExportRows(eventId, day)]
-    .map(r=>r.map(csvEscapeCell).join(','));
-  // 先頭にBOMを付けて、Excelで開いても文字化けしないようにする
-  const blob = new Blob(['﻿' + lines.join('\r\n') + '\r\n'], {type:'text/csv;charset=utf-8'});
-  const safeTitle = String(ev.title||'予定').replace(/[\\/:*?"<>|\s]+/g,'_');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${day.replace(/-/g,'')}_${safeTitle}_出席メンバー.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast('CSVをダウンロードしました');
 }
 
 // 名前が登録メンバーの場合、そのメンバーに紐づくMR(最高MRを優先。未登録なら現在のMR)を返す
