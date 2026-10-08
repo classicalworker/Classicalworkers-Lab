@@ -70,6 +70,7 @@ function adminDashboardHtml(){
     ${adminScheduleShortcutHtml()}
     ${adminActSettingsHtml()}
     ${adminRegulationSettingsHtml()}
+    ${statsAdminHtml()}
     ${adminMemberEditHtml()}
     ${adminAnnouncementsHtml()}
   `;

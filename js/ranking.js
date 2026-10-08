@@ -22,8 +22,15 @@ function renderRanking(){
       <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 対戦成績</div>
       <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
       <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>
+      <div class="sub-tab ${rankingSubTab === 'stats' ? 'active' : ''}" onclick="switchRankingSubTab('stats')">📈 対抗戦スタッツ</div>
     </div>
   `;
+
+  // ===== 📈 対抗戦スタッツ(js/stats.js) =====
+  if(rankingSubTab === 'stats'){
+    el.innerHTML = subTabsHtml + statsRankingHtml();
+    return;
+  }
 
   if(rankingSubTab === 'battles'){
     const withBattles = names

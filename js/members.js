@@ -50,6 +50,7 @@ function viewMember(name){
   const el = document.getElementById('view-members');
   const p = data.players[name];
   const s = computeStats(p);
+  statsCurrentMemberName = name;   // 対抗戦スタッツ(スマホ表示)のタブ切り替え用
   const controlLabel = (p.controlTypes||[]).join('/') || '未設定';
 
   const mainGoalHtml = p.mainGoal
@@ -121,6 +122,8 @@ function viewMember(name){
       </div>
       <div class="rank-meta" style="margin-top:10px;text-align:center;font-size:14px;">${s.total}戦 ${s.wins}勝</div>
     </div>
+
+    ${statsMemberCardHtml(name)}
 
     <div class="card">
       <h2>🎯 目標</h2>
