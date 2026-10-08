@@ -112,14 +112,14 @@ function adminMatchRecordMaskHtml(){
     <div class="card">
       <h2>🔒 マイページの対戦結果の記録</h2>
       <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
-        ONにすると、マイページの「STEP 2 対戦結果を記録」が隠れ、メンバーが対戦結果を記録できなくなります。<br>
+        ONにすると、マイページから「対戦結果を記録」の欄そのものが表示されなくなり(停止中の表示も出しません)、メンバーは対戦結果を記録できなくなります。<br>
         すでに記録されている対戦履歴・ランキングはそのまま表示されます。
       </div>
       <div class="choice-group">
         <div class="choice ${on ? '' : 'selected mask-off'}" onclick="adminSetMatchRecordMask(false)">OFF（記録できる）</div>
         <div class="choice ${on ? 'selected mask-on' : ''}" onclick="adminSetMatchRecordMask(true)">ON（マスクする）</div>
       </div>
-      <div style="font-size:13px;margin-top:10px;">現在：<span class="top-card-highlight">${on ? 'ON（記録を停止中）' : 'OFF（記録できる）'}</span></div>
+      <div style="font-size:13px;margin-top:10px;">現在：<span class="top-card-highlight">${on ? 'ON（記録欄を非表示）' : 'OFF（記録できる）'}</span></div>
     </div>`;
 }
 
@@ -206,7 +206,7 @@ async function adminAddMember(){
   if(data.players[name]){ showToast('その名前は既に登録されています'); return; }
   data.players[name] = {
     matches:[], goals:[], controlTypes:[], maxMR:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
-    userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
+    userCode:'', mainCharacter:'', subCharacters:[], devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
   };

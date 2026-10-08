@@ -20,8 +20,9 @@ function renderMembers(){
     const deviceRow = deviceChipsHtml(p);
     const formatChip = formatChipHtml(p);
     const platformRow = platformChipsHtml(p);
-    const metaRowHtml = (deviceRow || formatChip || platformRow)
-      ? `<div class="member-meta-row">${formatChip}${deviceRow}${platformRow}</div>`
+    const charChip = characterChipHtml(p);
+    const metaRowHtml = (charChip || deviceRow || formatChip || platformRow)
+      ? `<div class="member-meta-row">${charChip}${formatChip}${deviceRow}${platformRow}</div>`
       : '';
     const goalHtml = p.mainGoal
       ? `<div class="member-card-goal">${p.mainGoalDone?'✅':'🎯'} ${escapeHtml(p.mainGoal)}</div>`
@@ -94,6 +95,7 @@ function viewMember(name){
   const mrColor = p.currentMR ? getMRColor(parseInt(p.currentMR)||0) : 'var(--text-dim)';
   const deviceRowDetail = deviceChipsHtml(p);
   const platformRowDetail = platformChipsHtml(p);
+  const charChipDetail = characterChipHtml(p);
   const iconHeaderHtml = p.icon ? `<img class="member-icon-lg" src="${p.icon}" alt="">` : '';
 
   el.innerHTML = `
@@ -109,7 +111,7 @@ function viewMember(name){
       ${p.maxMR ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:4px">最大MR: ${escapeHtml(p.maxMR)}</div>` : ''}
       ${p.actBattleCount ? `<div style="font-family:var(--font-mono);font-size:16px;color:var(--text-dim);margin-bottom:8px">ACT${escapeHtml(String(p.currentActNumber||''))}: ${escapeHtml(String(p.actBattleCount))}戦</div>` : ''}
       ${p.userCode ? `<div class="member-usercode" style="margin-bottom:6px">🆔 ${escapeHtml(p.userCode)}</div>` : ''}
-      ${(deviceRowDetail || platformRowDetail) ? `<div class="member-meta-row" style="margin-bottom:6px">${deviceRowDetail}${platformRowDetail}</div>` : ''}
+      ${(charChipDetail || deviceRowDetail || platformRowDetail) ? `<div class="member-meta-row" style="margin-bottom:6px">${charChipDetail}${deviceRowDetail}${platformRowDetail}</div>` : ''}
       <div style="display:flex;gap:10px;margin-top:12px;">
         <div style="flex:1;text-align:center;padding:12px 8px;background:rgba(255,255,255,0.04);border-radius:10px;">
           <div style="font-size:11px;color:var(--text-dim);letter-spacing:.03em;margin-bottom:4px;">勝率</div>

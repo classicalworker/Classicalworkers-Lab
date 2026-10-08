@@ -76,6 +76,10 @@ function renderMyPageWithPlayer(){
     </label>`;
   }).join('');
 
+  // 使用キャラクター(メイン1キャラ・サブは「＋」で複数追加)
+  const mainCharOptionsHtml = characterOptionsHtml(p.mainCharacter||'', '未設定');
+  const subCharRowsHtml = (p.subCharacters||[]).map(c=>subCharacterRowHtml(c)).join('');
+
   const iconPreviewHtml = (pendingIconData || p.icon)
     ? `<img src="${pendingIconData || p.icon}" alt="">`
     : `<span class="no-icon">なし</span>`;
@@ -99,6 +103,13 @@ function renderMyPageWithPlayer(){
           <span>モダン(M)</span>
         </label>
       </div>
+      <label>メインキャラクター</label>
+      <select id="main-character-select">${mainCharOptionsHtml}</select>
+
+      <label>サブキャラクター</label>
+      <div id="sub-character-list">${subCharRowsHtml}</div>
+      <button type="button" class="btn-small" style="margin-top:6px" onclick="addSubCharacterRow()">＋ サブキャラを追加</button>
+
       <label>ユーザーコード(入力すると最大MRが表示されます)</label>
       <input type="text" id="user-code-input" value="${escapeHtml(p.userCode||'')}" placeholder="例:1234567890">
       ${(p.currentMR || p.maxMR || p.userCode) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : (p.userCode ? '今ACTランクマッチ未実施' : '')}${(p.maxMR && (p.currentMR || p.userCode)) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
@@ -146,15 +157,10 @@ function renderMyPageWithPlayer(){
       </div>
     </div>
 
+    ${data.maskMatchRecord ? '' : `
     <div class="card">
       <h2 class="step-toggle" onclick="toggleMypageStep(2)"><span><span class="tag">STEP 2</span>対戦結果を記録</span><span class="step-toggle-arrow" id="step-arrow-2">▾</span></h2>
       <div class="step-body" id="step-body-2">
-      ${data.maskMatchRecord ? `
-      <div class="match-record-mask">
-        <div class="match-record-mask-icon">🔒</div>
-        <div class="match-record-mask-title">対戦結果の記録は現在停止中です</div>
-        <div class="match-record-mask-text">管理者が記録の受付を止めています。再開されるまでお待ちください。</div>
-      </div>` : `
       <label>大会名<span class="req-mark">*</span></label>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="event-select" style="flex:1;" onchange="onEventSelect(this.value)">
@@ -196,12 +202,11 @@ function renderMyPageWithPlayer(){
         <div class="choice loss ${pendingResult==='loss'?'selected':''}" onclick="setResult('loss')">負け</div>
       </div>
       <button class="primary" onclick="recordMatch()">記録する</button>
-      `}
       </div>
-    </div>
+    </div>`}
 
     <div class="card">
-      <h2 class="step-toggle" onclick="toggleMypageStep(3)"><span><span class="tag">STEP 3</span>今シーズンの目標</span><span class="step-toggle-arrow" id="step-arrow-3">▾</span></h2>
+      <h2 class="step-toggle" onclick="toggleMypageStep(3)"><span><span class="tag">STEP ${data.maskMatchRecord ? 2 : 3}</span>今シーズンの目標</span><span class="step-toggle-arrow" id="step-arrow-3">▾</span></h2>
       <div class="step-body" id="step-body-3">
       <label>目標(このシーズンで一番達成したいこと)</label>
       <input type="text" id="main-goal-input" value="${escapeHtml(currentGoalValue || p.mainGoal || '')}" placeholder="例:Act毎3000試合こなす">
@@ -291,6 +296,27 @@ function handleIconUpload(input){
   reader.readAsDataURL(file);
 }
 
+// キャラクター選択肢(<option>)を生成する
+function characterOptionsHtml(selected, emptyLabel){
+  return `<option value="">${emptyLabel}</option>` + CHARACTER_LIST.map(c=>
+    `<option value="${escapeHtml(c)}" ${c===selected?'selected':''}>${escapeHtml(c)}</option>`
+  ).join('');
+}
+
+function subCharacterRowHtml(selected){
+  return `<div class="char-sub-row">
+    <select class="sub-character-select">${characterOptionsHtml(selected||'', '選択してください')}</select>
+    <button type="button" class="ghost char-sub-remove" onclick="this.closest('.char-sub-row').remove()" title="削除">×</button>
+  </div>`;
+}
+
+// 「＋」でサブキャラの入力欄を1つ追加する(他の入力内容を消さないよう、画面全体は再描画しない)
+function addSubCharacterRow(){
+  const list = document.getElementById('sub-character-list');
+  if(!list) return;
+  list.insertAdjacentHTML('beforeend', subCharacterRowHtml(''));
+}
+
 // twitch.tv/xxxx のようなURLが貼られた場合でも、ログイン名だけを抜き出す
 function parseTwitchLoginInput(raw){
   if (!raw) return '';
@@ -311,6 +337,13 @@ async function saveProfileStep2(){
   const devices = Array.from(document.querySelectorAll('.device-type-cb:checked')).map(el=>el.value);
   const deviceName = document.getElementById('device-name-input').value.trim();
   const platforms = Array.from(document.querySelectorAll('.platform-cb:checked')).map(el=>el.value);
+  const mainCharacter = document.getElementById('main-character-select').value;
+  // サブはメインと重複・空欄・同じキャラの重複を除いて保存する
+  const subCharacters = [];
+  document.querySelectorAll('.sub-character-select').forEach(el=>{
+    const v = el.value;
+    if(v && v !== mainCharacter && !subCharacters.includes(v)) subCharacters.push(v);
+  });
   const streamUrlRaw = document.getElementById('stream-url-input').value.trim();
   const streamTitleRaw = document.getElementById('stream-title-input').value.trim();
   const isLive = document.getElementById('stream-live-checkbox').checked;
@@ -323,6 +356,8 @@ async function saveProfileStep2(){
   player.devices = devices;
   player.deviceName = deviceName;
   player.platforms = platforms;
+  player.mainCharacter = mainCharacter;
+  player.subCharacters = subCharacters;
   player.streamUrl = streamUrlRaw;
   player.streamTitle = streamTitleRaw;
   player.isLive = !!isLive;
@@ -608,7 +643,6 @@ function setResult(r){
 async function recordMatch(){
   // 管理者ページで「対戦結果の記録をマスク」がONのときは記録しない
   if(data.maskMatchRecord){
-    showToast('対戦結果の記録は現在停止中です');
     return;
   }
   if(!currentPlayer) {
@@ -665,7 +699,7 @@ async function recordMatch(){
   if(!data.players[currentPlayer]) {
     data.players[currentPlayer] = {
       matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false,
-      userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[]
+      userCode:'', mainCharacter:'', subCharacters:[], devices:[], deviceName:'', platforms:[], icon:'', notifications:[]
     };
   }
   

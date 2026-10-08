@@ -345,6 +345,14 @@
   .platform-chip.xbox{background:#1f9c1f;}
   .platform-chip.switch2{background:#e6002e;}
   .platform-chip.pc{background:#7b5fe0;}
+  .character-chip{
+    font-size:12px;font-weight:800;padding:4px 11px;border-radius:20px;letter-spacing:.03em;
+    background:rgba(var(--gold-rgb),.14);border:1px solid rgba(var(--gold-rgb),.45);color:var(--gold);
+    display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  }
+  .char-sub-row{display:flex;gap:8px;align-items:center;margin-top:6px;}
+  .char-sub-row select{flex:1;}
+  .char-sub-remove{flex-shrink:0;width:auto;margin:0;padding:6px 12px;}
   .rank-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
   .rank-name{font-weight:800;font-size:15px;}
   .rank-meta{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}

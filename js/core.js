@@ -72,7 +72,7 @@ function defaultData(){
   const players = {};
   SEED_PLAYERS.forEach(n => players[n] = {
     matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
-    userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
+    userCode:'', mainCharacter:'', subCharacters:[], devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
   });
@@ -113,6 +113,9 @@ function normalizeData(data){
       if (!Array.isArray(p.platforms)) {
         p.platforms = [];
       }
+      // 使用キャラクター(メイン1キャラ/サブ複数)
+      if (typeof p.mainCharacter !== 'string') p.mainCharacter = '';
+      if (!Array.isArray(p.subCharacters)) p.subCharacters = [];
       if (!Array.isArray(p.notifications)) {
         p.notifications = [];
       }
@@ -954,6 +957,20 @@ const DEVICE_META = {
 };
 const PLATFORM_CLASS = {PS4:'ps4', PS5:'ps5', XBOX:'xbox', Switch2:'switch2', PC:'pc'};
 
+// 使用キャラクターの選択肢(マイページのメイン/サブ入力で使用)
+const CHARACTER_LIST = [
+  'リュウ','ルーク','ジェイミー','春麗','ガイル','キンバリー','ジュリ','ケン',
+  'ブランカ','ダルシム','E.本田','ディージェイ','マノン','マリーザ','JP','ザンギエフ',
+  'リリー','キャミィ','ラシード','A.K.I.','エド','豪鬼','ベガ','テリー',
+  '舞','エレナ','サガット','C.ヴァイパー','アレックス','イングリッド','ヤスミン','アルジュン'
+];
+
+// メインキャラクターのバッジ(サブは表示しない)
+function characterChipHtml(p){
+  const main = p && p.mainCharacter ? String(p.mainCharacter).trim() : '';
+  return main ? `<span class="character-chip">🥊 ${escapeHtml(main)}</span>` : '';
+}
+
 function deviceChipsHtml(p){
   const devices = p.devices || [];
   const chips = devices.map(d=>{
@@ -980,13 +997,14 @@ function formatChipHtml(p){
   return formatLabel ? `<span class="device-chip">${escapeHtml(formatLabel)}</span>` : '';
 }
 
-// 操作フォーマット・使用デバイス・メインプラットフォームのチップ行をまとめて生成
+// メインキャラ・操作フォーマット・使用デバイス・メインプラットフォームのチップ行をまとめて生成
 function memberMetaChipsHtml(p){
+  const charChip = characterChipHtml(p);
   const formatChip = formatChipHtml(p);
   const deviceRow = deviceChipsHtml(p);
   const platformRow = platformChipsHtml(p);
-  if(!formatChip && !deviceRow && !platformRow) return '';
-  return `<div class="member-meta-row">${formatChip}${deviceRow}${platformRow}</div>`;
+  if(!charChip && !formatChip && !deviceRow && !platformRow) return '';
+  return `<div class="member-meta-row">${charChip}${formatChip}${deviceRow}${platformRow}</div>`;
 }
 
 
@@ -1132,7 +1150,7 @@ function showLoginGate(onSuccess){
       } else {
         data.players[name] = {
           matches:[], goals:[], controlTypes:[], maxMR:'', currentMR:'', actBattleCount:'', currentActNumber:'', mainGoal:'', mainGoalDone:false, mainGoalAchievedAt:null,
-          userCode:'', devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
+          userCode:'', mainCharacter:'', subCharacters:[], devices:[], deviceName:'', platforms:[], icon:'', notifications:[],
           streamUrl:'', streamTitle:'', isLive:false,
           twitchLogin:'', pin:pin
         };

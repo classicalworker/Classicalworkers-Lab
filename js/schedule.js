@@ -538,7 +538,7 @@ function getEventDayAttendees(eventId, day){
 
 // ===== 出席メンバーの書き出し(スプレッドシート貼り付け用) =====
 // 対抗戦シートの自チーム側の列順「ユーザーコード / 名前 / 操作 / メイン / MR」に合わせて出力する。
-// メインキャラはサイトに登録項目がないため空欄にし、列の位置だけ揃える。
+// メインはマイページで登録したメインキャラクター(サブは出力しない)。
 const ATTENDEE_EXPORT_HEADERS = ['ユーザーコード', '名前', '操作', 'メイン', 'MR']; // 画面の表の見出し
 
 // 出席メンバーを最大MRの低い順(未登録は末尾・名前順)に並べて、書き出し用の行を返す
@@ -550,7 +550,7 @@ function attendeeExportRows(eventId, day){
       return {
         name: n,
         mrNum: mr !== '' && !isNaN(Number(mr)) ? Number(mr) : Infinity,
-        cells: [String(p.userCode||'').trim(), n, (p.controlTypes||[]).join('/'), '', mr]
+        cells: [String(p.userCode||'').trim(), n, (p.controlTypes||[]).join('/'), String(p.mainCharacter||'').trim(), mr]
       };
     })
     .sort((a,b)=> (a.mrNum === b.mrNum ? 0 : (a.mrNum < b.mrNum ? -1 : 1)) || a.name.localeCompare(b.name,'ja'))
@@ -573,7 +573,12 @@ function openAttendeeExportModal(eventId, day){
   const tr = rows.map(r=>`<tr>${r.map(c=>`<td style="padding:6px 8px;border-bottom:1px solid var(--panel-border);white-space:nowrap;${c===''?'color:var(--text-dim)':''}">${c===''?'–':escapeHtml(c)}</td>`).join('')}</tr>`).join('');
   const missingCode = rows.filter(r=>!r[0]).length;
   const missingMR = rows.filter(r=>!r[4]).length;
-  const warn = (missingCode || missingMR) ? `<div class="attend-toggle-hint" style="color:var(--gold)">⚠ ユーザーコード未登録 ${missingCode}名 / 最大MR未取得 ${missingMR}名(空欄で出力されます)</div>` : '';
+  const missingMain = rows.filter(r=>!r[3]).length;
+  const warnItems = [];
+  if(missingCode) warnItems.push(`ユーザーコード未登録 ${missingCode}名`);
+  if(missingMain) warnItems.push(`メインキャラ未登録 ${missingMain}名`);
+  if(missingMR) warnItems.push(`最大MR未取得 ${missingMR}名`);
+  const warn = warnItems.length ? `<div class="attend-toggle-hint" style="color:var(--gold)">⚠ ${warnItems.join(' / ')}(空欄で出力されます)</div>` : '';
 
   openModal(`
     <div class="modal-head">
@@ -589,7 +594,7 @@ function openAttendeeExportModal(eventId, day){
     </div>
     ${warn}
     <button class="primary" style="margin-top:12px" onclick="copyAttendeeExport('${ev.id}','${day}')">📋 コピー(シートに貼り付け)</button>
-    <div class="attend-toggle-hint">「コピー」は見出しなしでコピーします。対抗戦シートの自チーム側「ユーザーコード」列(C列)の1人目のセルを選んで貼り付けると、各列にそのまま入ります。メインは空欄です。</div>
+    <div class="attend-toggle-hint">「コピー」は見出しなしでコピーします。対抗戦シートの自チーム側「ユーザーコード」列(C列)の1人目のセルを選んで貼り付けると、各列にそのまま入ります。</div>
     ${attendeeExportFromDay ? `<button class="ghost" style="margin-top:10px" onclick="openDayModal('${attendeeExportFromDay}')">← 戻る</button>` : ''}
   `);
 }
