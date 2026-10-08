@@ -12,16 +12,26 @@
 .cws-na{color:var(--cws-muted) !important;}
 
 /* ---------- ランキング:一覧表 ---------- */
+/* 対抗戦スタッツのタブを開いている間はページの横幅を画面いっぱいに(js/ranking.js が body に cws-wide を付ける) */
+@media (min-width:860px){
+  body.cws-wide .wrap{max-width:none;}
+  body.cws-wide #view-ranking{max-width:none;}
+}
 .cws-meta-row{display:flex;justify-content:space-between;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-bottom:10px;}
 .cws-table-wrap{overflow-x:auto;border:1px solid var(--panel-border);border-radius:10px;background:var(--panel);-webkit-overflow-scrolling:touch;}
-.cws-table{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%;}
-.cws-table th,.cws-table td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--panel-border);font-variant-numeric:tabular-nums;}
-.cws-table th{font-family:var(--font-display);font-weight:700;color:var(--text-dim);background:var(--input-bg);cursor:pointer;user-select:none;}
+.cws-table{border-collapse:collapse;font-size:16px;white-space:nowrap;width:100%;}
+.cws-table th,.cws-table td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--panel-border);font-variant-numeric:tabular-nums;}
+.cws-table th{font-size:13px;font-family:var(--font-display);font-weight:700;color:var(--text-dim);background:var(--input-bg);cursor:pointer;user-select:none;}
 .cws-table th:hover{color:var(--text);}
 .cws-table th.cws-sorted{color:var(--gold);}
 .cws-table th:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;}
 .cws-arw{font-size:9px;margin-left:2px;}
-.cws-table td{font-family:var(--font-mono);}
+.cws-table td{font-family:var(--font-mono);font-weight:600;}
+.cws-table td.cws-n{font-size:14px;}
+@media (max-width:560px){
+  .cws-table{font-size:15px;}
+  .cws-table th,.cws-table td{padding:9px 10px;}
+}
 .cws-table th.cws-n,.cws-table td.cws-n{text-align:left;position:sticky;left:0;z-index:1;cursor:default;}
 .cws-table td.cws-n{background:var(--panel);font-family:var(--font-body);font-weight:800;}
 .cws-table th.cws-n{background:var(--input-bg);z-index:2;}

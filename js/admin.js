@@ -70,6 +70,7 @@ function adminDashboardHtml(){
     ${adminScheduleShortcutHtml()}
     ${adminActSettingsHtml()}
     ${adminRegulationSettingsHtml()}
+    ${adminMatchRecordMaskHtml()}
     ${statsAdminHtml()}
     ${adminMemberEditHtml()}
     ${adminAnnouncementsHtml()}
@@ -102,6 +103,32 @@ async function adminUpdateCurrentAct(){
   await saveData();
   renderAdmin();
   showToast(`現在のACTをAct${v}に変更しました`);
+}
+
+// ---- マイページの「対戦結果を記録」のマスク(ON=メンバーが記録できない。デフォルトOFF) ----
+function adminMatchRecordMaskHtml(){
+  const on = !!data.maskMatchRecord;
+  return `
+    <div class="card">
+      <h2>🔒 マイページの対戦結果の記録</h2>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
+        ONにすると、マイページの「STEP 2 対戦結果を記録」が隠れ、メンバーが対戦結果を記録できなくなります。<br>
+        すでに記録されている対戦履歴・ランキングはそのまま表示されます。
+      </div>
+      <div class="choice-group">
+        <div class="choice ${on ? '' : 'selected mask-off'}" onclick="adminSetMatchRecordMask(false)">OFF（記録できる）</div>
+        <div class="choice ${on ? 'selected mask-on' : ''}" onclick="adminSetMatchRecordMask(true)">ON（マスクする）</div>
+      </div>
+      <div style="font-size:13px;margin-top:10px;">現在：<span class="top-card-highlight">${on ? 'ON（記録を停止中）' : 'OFF（記録できる）'}</span></div>
+    </div>`;
+}
+
+async function adminSetMatchRecordMask(on){
+  if(!!data.maskMatchRecord === on) return;
+  data.maskMatchRecord = on;
+  await saveData();
+  renderAdmin();
+  showToast(on ? 'マイページの対戦結果の記録をマスクしました' : 'マイページの対戦結果の記録を再開しました');
 }
 
 // ---- ②' 対戦成績ランキングの規定試合数の設定 ----

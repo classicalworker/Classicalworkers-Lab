@@ -27,6 +27,8 @@ function renderRanking(){
   `;
 
   // ===== 📈 対抗戦スタッツ(js/stats.js) =====
+  // 一覧表は横に長いので、このタブを開いている間だけページの横幅を画面いっぱいに広げる
+  document.body.classList.toggle('cws-wide', rankingSubTab === 'stats');
   if(rankingSubTab === 'stats'){
     el.innerHTML = subTabsHtml + statsRankingHtml();
     return;

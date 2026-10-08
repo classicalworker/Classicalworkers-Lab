@@ -21,19 +21,19 @@ const STATS_COLS = [
   {key:'ドライブインパクト成功', h:'DI成功'},
   {key:'ドライブインパクト返し', h:'DI返し'},
   {key:'ドライブインパクトパリィ受け', h:'DIパリィ受け'},
-  {key:'ドライブパリイ', h:'ドライブパリイ'},
+  {key:'ドライブパリイ', h:'パリィ'},
   {key:'ジャストパリイ(暗転)', h:'ジャスパ(暗転)'},
   {key:'ジャストパリイ(飛び道具)', h:'ジャスパ(飛び道具)'},
   {key:'ドライブリバーサル', h:'ドライブリバーサル'},
-  {key:'オーバードライブ', h:'オーバードライブ'},
+  {key:'オーバードライブ', h:'OD技'},
   {key:'バーンアウト', h:'バーンアウト', low:true},
-  {key:'対空_企図', h:'対空企図'},
+  {key:'対空_企図', h:'対空機会'},
   {key:'対空_成功', h:'対空成功'},
   {key:'対空率', h:'対空成功率', type:'rate', ok:'対空_成功', tr:'対空_企図'},
-  {key:'投げ抜け_企図', h:'投げ抜け企図'},
+  {key:'投げ抜け_企図', h:'投げ抜け回数'},
   {key:'投げ抜け_成功', h:'投げ抜け成功'},
   {key:'投げ抜け率', h:'投げ抜け成功率', type:'rate', ok:'投げ抜け_成功', tr:'投げ抜け_企図'},
-  {key:'無敵技暴れ_企図', h:'無敵技暴れ企図'},
+  {key:'無敵技暴れ_企図', h:'無敵技暴れ回数'},
   {key:'無敵技暴れ_成功', h:'無敵技暴れ成功'},
   {key:'無敵技暴れ率', h:'無敵技暴れ成功率', type:'rate', ok:'無敵技暴れ_成功', tr:'無敵技暴れ_企図'},
 ];
@@ -46,17 +46,17 @@ const STATS_ITEMS = [
   {g:'ドライブインパクト', key:'ドライブインパクト成功', h:'ドライブインパクト成功', unit:'回'},
   {g:'ドライブインパクト', key:'ドライブインパクト返し', h:'ドライブインパクト返し', unit:'回'},
   {g:'ドライブインパクト', key:'ドライブインパクトパリィ受け', h:'ドライブインパクトパリィ受け', unit:'回'},
-  {g:'パリィ', key:'ドライブパリイ', h:'ドライブパリイ', unit:'回'},
+  {g:'パリィ', key:'ドライブパリイ', h:'パリィ', unit:'回'},
   {g:'パリィ', key:'ジャストパリイ(暗転)', h:'ジャストパリイ(暗転)', unit:'回'},
   {g:'パリィ', key:'ジャストパリイ(飛び道具)', h:'ジャストパリイ(飛び道具)', unit:'回'},
   {g:'ドライブ', key:'ドライブラッシュ', h:'ドライブラッシュ', unit:'回'},
   {g:'ドライブ', key:'キャンセルドライブラッシュ', h:'キャンセルドライブラッシュ', unit:'回'},
   {g:'ドライブ', key:'ドライブリバーサル', h:'ドライブリバーサル', unit:'回'},
-  {g:'ドライブ', key:'オーバードライブ', h:'オーバードライブ', unit:'回'},
+  {g:'ドライブ', key:'オーバードライブ', h:'OD技', unit:'回'},
   {g:'ドライブ', key:'バーンアウト', h:'バーンアウト', unit:'回', low:true},
-  {g:'対応力', key:'対空', h:'対空成功率', unit:'%', type:'rate', ok:'対空_成功', tr:'対空_企図'},
-  {g:'対応力', key:'投げ抜け', h:'投げ抜け成功率', unit:'%', type:'rate', ok:'投げ抜け_成功', tr:'投げ抜け_企図'},
-  {g:'対応力', key:'無敵技暴れ', h:'無敵技暴れ成功率', unit:'%', type:'rate', ok:'無敵技暴れ_成功', tr:'無敵技暴れ_企図'},
+  {g:'対応力', key:'対空', h:'対空成功率', unit:'%', type:'rate', ok:'対空_成功', tr:'対空_企図', trh:'機会'},
+  {g:'対応力', key:'投げ抜け', h:'投げ抜け成功率', unit:'%', type:'rate', ok:'投げ抜け_成功', tr:'投げ抜け_企図', trh:'回数'},
+  {g:'対応力', key:'無敵技暴れ', h:'無敵技暴れ成功率', unit:'%', type:'rate', ok:'無敵技暴れ_成功', tr:'無敵技暴れ_企図', trh:'回数'},
 ];
 const STATS_GROUPS = ['勝率', 'ドライブインパクト', 'パリィ', 'ドライブ', '対応力'];
 const STATS_GROUP_TAB = {'勝率':'勝率', 'ドライブインパクト':'DI', 'パリィ':'パリィ', 'ドライブ':'ドライブ', '対応力':'対応力'};
@@ -227,7 +227,7 @@ function statsRankingHtml(){
   };
 
   const head = `<tr><th class="cws-n">選手</th>` + STATS_COLS.map((col, i) =>
-    `<th tabindex="0" class="${i === statsSortCol ? 'cws-sorted' : ''}" onclick="statsSortBy(${i})" onkeydown="if(event.key==='Enter')statsSortBy(${i})" title="${escapeHtml(col.h)}で並び替え">${escapeHtml(col.h)}${i === statsSortCol ? '<span class="cws-arw">▼</span>' : ''}</th>`
+    `<th tabindex="0" data-i="${i}" class="${i === statsSortCol ? 'cws-sorted' : ''}" onclick="statsSortBy(${i})" onkeydown="if(event.key==='Enter')statsSortBy(${i})" title="${escapeHtml(col.h)}で並び替え">${escapeHtml(col.h)}${i === statsSortCol ? '<span class="cws-arw">▼</span>' : ''}</th>`
   ).join('') + `</tr>`;
 
   const body = sorted.map(r => {
@@ -251,13 +251,21 @@ function statsRankingHtml(){
     <div class="cws-table-wrap"><table class="cws-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>
     <div class="cws-legend">
       見出しをタップすると、その項目の多い順（バーンアウトは少ない順）に並び替わります。金色は各項目の1位、「-」は記録なしです。<br>
-      対空・投げ抜け・無敵技暴れの成功率は、野球の盗塁と同じく「成功 ÷ 企図」。成功率が同じときは企図数の多い方が上です。<br>
+      対空・投げ抜け・無敵技暴れの成功率は、野球の盗塁と同じく「成功 ÷ 対空機会（投げ抜け・無敵技暴れは回数）」。成功率が同じときは機会・回数の多い方が上です。<br>
       1P側・2P側勝率はセット単位です。選手名をタップするとメンバーページを開きます。
     </div>`;
 }
 function statsSortBy(i){
   statsSortCol = i;
+  // 並び替えても表の横スクロール位置・ページの縦位置はそのままにする
+  const wrap = document.querySelector('.cws-table-wrap');
+  const left = wrap ? wrap.scrollLeft : 0, top = window.scrollY;
   if(typeof renderRanking === 'function') renderRanking();
+  const w2 = document.querySelector('.cws-table-wrap');
+  if(w2) w2.scrollLeft = left;
+  window.scrollTo(window.scrollX, top);
+  const th = document.querySelector(`.cws-table th[data-i="${i}"]`);
+  if(th) th.focus({preventScroll:true});
 }
 
 // =====================================================================
@@ -324,7 +332,7 @@ function statsRankStripHtml(rows, row){
 // PC: 項目カード
 function statsCardHtml(rows, row, it){
   const v = statsVal(row, it), s = statsStanding(rows, row, it);
-  const sb = it.type === 'rate' ? `<div class="cws-sb">成功 <b>${statsNum(row[it.ok]) || 0}</b> / 企図 <b>${statsNum(row[it.tr]) || 0}</b></div>` : '';
+  const sb = it.type === 'rate' ? `<div class="cws-sb">成功 <b>${statsNum(row[it.ok]) || 0}</b> / ${it.trh} <b>${statsNum(row[it.tr]) || 0}</b></div>` : '';
   return `<div class="cws-sc${s.rank === 1 ? ' cws-first' : ''}">
     <div class="cws-sc-t">${escapeHtml(it.h)}${it.low ? '<small>少ないほど上位</small>' : ''}</div>
     <div class="cws-sc-body">
@@ -343,7 +351,7 @@ function statsRowHtml(rows, row, it){
   const top = it.unit === '%' ? 100 : (s.max || 1);
   const w = v === null ? 0 : Math.min(100, v / top * 100);
   const a = s.avg === null ? null : Math.min(100, s.avg / top * 100);
-  const ok = it.type === 'rate' ? `<span>成功 <em>${statsNum(row[it.ok]) || 0}</em> / 企図 <em>${statsNum(row[it.tr]) || 0}</em></span>` : '';
+  const ok = it.type === 'rate' ? `<span>成功 <em>${statsNum(row[it.ok]) || 0}</em> / ${it.trh} <em>${statsNum(row[it.tr]) || 0}</em></span>` : '';
   return `<div class="cws-row${s.rank === 1 ? ' cws-first' : ''}">
     ${statsRingHtml(s)}
     <div class="cws-row-nm">${escapeHtml(it.h)}${it.low ? '<small>少ないほど上位</small>' : ''}</div>
@@ -393,7 +401,7 @@ function statsMemberCardHtml(memberName){
     <div class="cws-note">
       リングと数字はクラシカルワーカーの中での順位（リングが満タンに近いほど上位）。平均値・最大値もチーム内の値です。<br>
       <span class="cws-only-sp">バーの右端は回数ならチーム最大値、率なら100%、縦線がチーム平均です。</span>
-      対空・投げ抜け・無敵技暴れの成功率は「成功 ÷ 企図」。1P側・2P側勝率はセット単位です。
+      成功率は「成功 ÷ 対空機会（投げ抜け・無敵技暴れは回数）」。1P側・2P側勝率はセット単位です。
     </div>
   </div>`;
 }

@@ -1290,3 +1290,14 @@
   @media (prefers-reduced-motion: reduce){
     .rec-latest.fx-straight,.rec-latest.fx-upset,.rec-latest.fx-rainbow{animation:none;}
   }
+
+  /* ==== マイページ:対戦結果の記録のマスク(管理者ページでON/OFF) ==== */
+  .match-record-mask{
+    text-align:center;padding:22px 14px;border:1px dashed var(--panel-border);border-radius:10px;
+    background:var(--input-bg);
+  }
+  .match-record-mask-icon{font-size:26px;margin-bottom:6px;}
+  .match-record-mask-title{font-family:var(--font-display);font-weight:800;font-size:14px;color:var(--text);}
+  .match-record-mask-text{font-size:12px;color:var(--text-dim);margin-top:6px;line-height:1.6;}
+  .choice.selected.mask-off{background:var(--win);border-color:var(--win);color:#fff;}
+  .choice.selected.mask-on{background:var(--gold);border-color:var(--gold);color:#fff;}

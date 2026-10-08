@@ -149,6 +149,12 @@ function renderMyPageWithPlayer(){
     <div class="card">
       <h2 class="step-toggle" onclick="toggleMypageStep(2)"><span><span class="tag">STEP 2</span>対戦結果を記録</span><span class="step-toggle-arrow" id="step-arrow-2">▾</span></h2>
       <div class="step-body" id="step-body-2">
+      ${data.maskMatchRecord ? `
+      <div class="match-record-mask">
+        <div class="match-record-mask-icon">🔒</div>
+        <div class="match-record-mask-title">対戦結果の記録は現在停止中です</div>
+        <div class="match-record-mask-text">管理者が記録の受付を止めています。再開されるまでお待ちください。</div>
+      </div>` : `
       <label>大会名<span class="req-mark">*</span></label>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="event-select" style="flex:1;" onchange="onEventSelect(this.value)">
@@ -190,6 +196,7 @@ function renderMyPageWithPlayer(){
         <div class="choice loss ${pendingResult==='loss'?'selected':''}" onclick="setResult('loss')">負け</div>
       </div>
       <button class="primary" onclick="recordMatch()">記録する</button>
+      `}
       </div>
     </div>
 
@@ -599,6 +606,11 @@ function setResult(r){
 }
 
 async function recordMatch(){
+  // 管理者ページで「対戦結果の記録をマスク」がONのときは記録しない
+  if(data.maskMatchRecord){
+    showToast('対戦結果の記録は現在停止中です');
+    return;
+  }
   if(!currentPlayer) {
     showToast('先に自分を選択してください');
     return;
