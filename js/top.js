@@ -550,11 +550,11 @@ function topBattleRankingCardHtml(){
 
 // ---- ランキングカード: 対戦成績(総合成績)の上位5名を表示 ----
 // ランキングページの「📋 総合成績」と同じ並び(参加率が高い順 → 勝率 → 勝ち数)。
-// 集計対象は対抗戦+身内イベント。主催など「参考記録」扱いのメンバーは順位から外す。
-// 各メンバーの参加率・戦績と、直近の対戦結果(対抗戦/身内イベント問わず)を表示する。
+// 集計対象は対抗戦+クラブイベント。主催など「参考記録」扱いのメンバーは順位から外す。
+// 各メンバーの参加率・戦績と、直近の対戦結果(対抗戦/クラブイベント問わず)を表示する。
 
 function topRankingCardHtml(){
-  const categories = ['interteam','internal'];
+  const categories = ['interteam','club'];
   const ranked = Object.keys(data.players)
     .filter(n => !RANKING_REFERENCE_ONLY_NAMES.includes(n))
     .map(n => ({
@@ -586,7 +586,7 @@ function topRankingCardHtml(){
       ? `${p.stats.total}戦${p.stats.wins}勝(勝率${p.stats.winRate.toFixed(0)}%)`
       : '戦績なし';
 
-    // 直近の対戦結果(対抗戦・身内イベント問わず、開催日が新しい試合)
+    // 直近の対戦結果(対抗戦・クラブイベント問わず、開催日が新しい試合)
     const latest = getPlayerLatestMatch(player, categories);
     let latestHtml = `<div class="top-rank-latest none">直近の対戦:記録なし</div>`;
     if(latest){
@@ -620,7 +620,7 @@ function topRankingCardHtml(){
         </div>
       </div>`;
   }).join('');
-  return `<div class="top-card-subnote">総合成績(対抗戦+身内イベント)・参加率順</div><div class="top-rank-list">${itemsHtml}</div>`;
+  return `<div class="top-card-subnote">総合成績(対抗戦+クラブイベント)・参加率順</div><div class="top-rank-list">${itemsHtml}</div>`;
 }
 
 // ---- お知らせカード: 予定の登録・目標達成などの最新の出来事を表示 ----

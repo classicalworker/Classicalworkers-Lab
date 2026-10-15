@@ -143,7 +143,7 @@ function eventCardHtml(ev, onlyDay){
     : `<span class="pill" style="background:rgba(139,137,154,.18);color:var(--text-dim);margin-left:6px">出席確認なし</span>`;
   const categoryTag = ev.category === 'interteam'
     ? `<span class="pill" style="background:rgba(var(--gold-rgb),.14);color:var(--gold);margin-left:6px">🆚 対抗戦</span>`
-    : `<span class="pill" style="background:rgba(139,137,154,.18);color:var(--text-dim);margin-left:6px">🏠 身内イベント</span>`;
+    : `<span class="pill" style="background:rgba(139,137,154,.18);color:var(--text-dim);margin-left:6px">🏠 クラブイベント</span>`;
   const todayStr = new Date().toISOString().slice(0,10);
   const deadlinePassed = !!(ev.attendanceRequired && ev.attendanceDeadline && todayStr > ev.attendanceDeadline);
   const deadlineTag = (ev.attendanceRequired && ev.attendanceDeadline)
@@ -172,12 +172,12 @@ function eventCardHtml(ev, onlyDay){
             <div>
               <label>予定の種類</label>
               <select id="edit-event-category-${ev.id}">
-                <option value="internal" ${ev.category!=='interteam'?'selected':''}>🏠 身内イベント</option>
+                <option value="club" ${ev.category!=='interteam'?'selected':''}>🏠 クラブイベント</option>
                 <option value="interteam" ${ev.category==='interteam'?'selected':''}>🆚 対抗戦</option>
               </select>
             </div>
           </div>
-          <div class="attend-toggle-hint">「対抗戦」は対戦成績ランキングの規定試合数の集計対象になります。身内イベントの結果は集計に含まれません。</div>
+          <div class="attend-toggle-hint">「対抗戦」は対戦成績ランキングの規定試合数の集計対象になります。クラブイベントの結果は対抗戦の規定試合数には含まれません。</div>
           <div>
             <label>詳細</label>
             <textarea id="edit-event-desc-${ev.id}">${escapeHtml(ev.description||'')}</textarea>
@@ -380,7 +380,7 @@ async function saveEventEdit(id){
   ev.title = title;
   ev.description = desc;
   ev.attendanceRequired = attendRequired;
-  ev.category = categoryEl && categoryEl.value === 'interteam' ? 'interteam' : 'internal';
+  ev.category = categoryEl && categoryEl.value === 'interteam' ? 'interteam' : 'club';
   ev.attendanceDeadline = attendRequired && deadlineEl ? (deadlineEl.value || null) : null;
   editingEventId = null;
   await saveData();
@@ -977,10 +977,10 @@ let eventModalAttendanceRequired = true;
 let eventModalTitle = '';
 let eventModalDesc = '';
 let eventModalDeadline = '';
-// 予定の種類: 'interteam'(対抗戦) / 'internal'(身内イベント)。
+// 予定の種類: 'interteam'(対抗戦) / 'club'(クラブイベント)。
 // 対戦成績ランキングの規定試合数は「対抗戦」タグの予定だけを集計対象にするため、
-// 誤って母数に含めないよう新規作成時は「身内イベント」をデフォルトにする。
-let eventModalCategory = 'internal';
+// 誤って母数に含めないよう新規作成時は「クラブイベント」をデフォルトにする。
+let eventModalCategory = 'club';
 
 function openEventModal(){
   requireAdminPin(()=>{
@@ -988,7 +988,7 @@ function openEventModal(){
     eventModalTitle = '';
     eventModalDesc = '';
     eventModalDeadline = '';
-    eventModalCategory = 'internal';
+    eventModalCategory = 'club';
     pickerInit([]);
     renderEventModal();
     document.getElementById('modal-overlay').style.display = 'flex';
@@ -1053,9 +1053,9 @@ function renderEventModal(){
     <label>予定の種類<span class="req-mark">*</span></label>
     <div class="choice-group">
       <div class="choice ${eventModalCategory==='interteam'?'win selected':''}" onclick="eventModalSetCategory('interteam')">🆚 対抗戦</div>
-      <div class="choice ${eventModalCategory==='internal'?'loss selected':''}" onclick="eventModalSetCategory('internal')">🏠 身内イベント</div>
+      <div class="choice ${eventModalCategory==='club'?'loss selected':''}" onclick="eventModalSetCategory('club')">🏠 クラブイベント</div>
     </div>
-    <div class="attend-toggle-hint">「対抗戦」は対戦成績ランキングの規定試合数の集計対象になります。身内イベントの結果は集計に含まれません。</div>
+    <div class="attend-toggle-hint">「対抗戦」は対戦成績ランキングの規定試合数の集計対象になります。クラブイベントの結果は対抗戦の規定試合数には含まれません。</div>
 
     <label>出席確認</label>
     <div class="choice-group">
@@ -1115,7 +1115,7 @@ async function submitEventModal(){
     const dateText = dates.map(d=>formatDayShort(d)).join('、');
     const deadlineText = attendanceDeadline ? `　⏰ 締切:${formatDayShort(attendanceDeadline)}` : '';
     const attendText = eventModalAttendanceRequired ? '　✅ 出欠確認あり' : '　❎ 出欠確認なし';
-    const categoryText = eventModalCategory === 'interteam' ? '　🆚 対抗戦' : '　🏠 身内イベント';
+    const categoryText = eventModalCategory === 'interteam' ? '　🆚 対抗戦' : '　🏠 クラブイベント';
     pushAnnouncement(`📅「${title}」${detailTag}が予定に登録されました　🗓 ${dateText}${deadlineText}${attendText}${categoryText}`, false, {id: newEventId, type: 'event'});
   }
   await saveData();

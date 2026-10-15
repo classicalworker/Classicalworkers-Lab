@@ -11,7 +11,7 @@ let currentPlayer = null;
 let pendingResult = null;
 let opponentName = '';
 let rankingSubTab = 'winrate';
-// 対戦成績タブ内の絞り込み: 'interteam'(対抗戦成績) / 'internal'(身内イベント成績) / 'all'(総合成績)
+// 対戦成績タブ内の絞り込み: 'interteam'(対抗戦成績) / 'club'(クラブイベント成績・外部大会含む) / 'all'(総合成績)
 let rankingRecordSubTab = 'interteam';
 // MRランキングタブ内の切り替え: 'max'(最高MRランキング) / 'act'(現在ACTのランキング)
 let rankingMRSubTab = 'max';
@@ -76,7 +76,7 @@ function defaultData(){
     streamUrl:'', streamTitle:'', isLive:false,
     twitchLogin:'', pin:''
   });
-  // interTeamBaseCount: タグ管理(予定の「対抗戦」/「身内イベント」区分)を始める前に、
+  // interTeamBaseCount: タグ管理(予定の「対抗戦」/「クラブイベント」区分)を始める前に、
   // すでに開催済みだった対抗戦の数。勝率ランキングの規定試合数の計算に使う基礎値。
   return {players, events:[], tournaments:[], admin:{pinHash:''}, announcements:[], interTeamBaseCount: 2, currentAct: DEFAULT_ACT_NUMBER};
 }
@@ -158,9 +158,10 @@ function normalizeData(data){
       if (!ev.attendance) ev.attendance = {};
       // 管理者が入力した対戦結果(出席メンバー同士に限定)を予定ごとに保持する
       if (!Array.isArray(ev.results)) ev.results = [];
-      // 予定の種類: 'interteam'(対抗戦) / 'internal'(身内イベント)。
-      // 未設定・不正値は「身内イベント」扱いにし、規定試合数の集計に誤って含めない。
-      if (ev.category !== 'interteam' && ev.category !== 'internal') ev.category = 'internal';
+      // 予定の種類: 'interteam'(対抗戦) / 'club'(クラブイベント)。
+      // 旧タグ 'internal'(旧称:身内イベント)や未設定・不正値は「クラブイベント」扱いにし、
+      // 規定試合数の集計に誤って含めない(次回保存時に 'club' として書き戻される)。
+      if (ev.category !== 'interteam' && ev.category !== 'club') ev.category = 'club';
     });
   } else {
     data.events = [];
@@ -198,6 +199,12 @@ function normalizeData(data){
   if (!Array.isArray(data.announcements)) {
     data.announcements = [];
   }
+  // 旧称「身内イベント」で登録済みのお知らせ文言を「クラブイベント」に置き換える
+  data.announcements.forEach(a => {
+    if (a && typeof a.text === 'string' && a.text.includes('身内イベント')) {
+      a.text = a.text.split('身内イベント').join('クラブイベント');
+    }
+  });
   
   // 古いプロパティを削除
   Object.values(data.players || {}).forEach(p => {
@@ -396,7 +403,7 @@ function computeStats(p){
 
 // ===== 規定試合数(勝率ランキングの足切りライン)まわりの計算 =====
 // 「対抗戦」タグが付いた予定のうち、実際に対戦結果が記録されているものだけを
-// 「開催された対抗戦」として数える(身内イベントはここでは一切カウントしない)。
+// 「開催された対抗戦」として数える(クラブイベントはここでは一切カウントしない)。
 function getInterTeamHeldEventIds(){
   const ids = new Set();
   (data.events||[]).forEach(ev=>{
@@ -427,37 +434,51 @@ function getRequiredMatchCount(){
   return Math.floor(held / 2) + 1;
 }
 
-// そのプレイヤーが「対抗戦」で対戦した数(身内イベントの結果・対抗戦以外の記録はカウントしない)
-function getPlayerInterTeamMatchCount(p){
-  return (p.matches||[]).filter(m=>{
-    if(m.eventType !== 'event' || !m.eventId) return false;
+// 対戦記録1件がどの集計区分に属するかを返す。
+//   'interteam' : 「対抗戦」タグの予定に紐づく対戦
+//   'club'      : 「クラブイベント」タグの予定に紐づく対戦、および外部大会の対戦
+//                 (外部大会 = 予定にリンクしていない大会記録を選んだ対戦、または「＋新規入力」で大会名を入力した対戦)
+//   null        : 野試合・大会名なし・削除済みの予定に紐づく対戦など、集計対象外
+// 大会記録が予定にリンクしている場合は、リンク先の予定の種類に従う。
+function getMatchCategory(m){
+  if(!m) return null;
+  if(m.eventType === 'event'){
+    if(!m.eventId) return null;
     const ev = (data.events||[]).find(e=>e.id===m.eventId);
-    return ev && ev.category === 'interteam';
-  }).length;
+    return ev ? ev.category : null;
+  }
+  if(m.eventType === 'tournament'){
+    if(!m.eventId) return null;
+    const t = (data.tournaments||[]).find(x=>x.id===m.eventId);
+    const linkedEv = t ? getLinkedEventForTournament(t) : null;
+    return linkedEv ? linkedEv.category : 'club';
+  }
+  // 予定・大会記録に紐づかない記録: 手入力の大会名があれば外部大会、野試合は対象外
+  const name = String(m.eventName||'').trim();
+  if(!m.eventId && name && name !== '野試合') return 'club';
+  return null;
 }
 
-// そのプレイヤーが「身内イベント」で対戦した数(対抗戦の結果はカウントしない)
-function getPlayerInternalMatchCount(p){
-  return (p.matches||[]).filter(m=>{
-    if(m.eventType !== 'event' || !m.eventId) return false;
-    const ev = (data.events||[]).find(e=>e.id===m.eventId);
-    return ev && ev.category === 'internal';
-  }).length;
+// そのプレイヤーが「対抗戦」で対戦した数(クラブイベント・外部大会の結果はカウントしない)
+function getPlayerInterTeamMatchCount(p){
+  return (p.matches||[]).filter(m=>getMatchCategory(m) === 'interteam').length;
+}
+
+// そのプレイヤーが「クラブイベント(外部大会含む)」で対戦した数(対抗戦の結果はカウントしない)
+function getPlayerClubMatchCount(p){
+  return (p.matches||[]).filter(m=>getMatchCategory(m) === 'club').length;
 }
 
 // 対戦成績ランキング用: カテゴリを指定して対戦数・勝ち数・勝率を集計する。
-// categories に配列(['interteam'] や ['internal']、両方まとめて ['interteam','internal'] など)を
-// 渡すと、その種類タグの予定に紐づく対戦だけに絞り込んで集計する。
-// categories が null/未指定の場合は、予定に紐づかないフリー入力や大会記録も含めた全対戦を集計する
+// categories に配列(['interteam'] や ['club']、両方まとめて ['interteam','club'] など)を
+// 渡すと、その区分(getMatchCategory)の対戦だけに絞り込んで集計する。
+// 'club' には外部大会の対戦も含まれる。
+// categories が null/未指定の場合は、野試合なども含めた全対戦を集計する
 // (現在のランキング画面では使用していないが、汎用的に使えるよう残してある)。
 function computeStatsForCategory(p, categories){
   const all = p.matches || [];
   const matches = categories
-    ? all.filter(m=>{
-        if(m.eventType !== 'event' || !m.eventId) return false;
-        const ev = (data.events||[]).find(e=>e.id===m.eventId);
-        return ev && categories.includes(ev.category);
-      })
+    ? all.filter(m=>categories.includes(getMatchCategory(m)))
     : all;
   const total = matches.length;
   const wins = matches.filter(m=>m.result==='win').length;
@@ -470,7 +491,7 @@ function isPlayerRegulationMet(p){
   return getPlayerInterTeamMatchCount(p) >= getRequiredMatchCount();
 }
 
-// 指定カテゴリ(対抗戦/身内イベントなど)の予定に紐づく対戦のうち、最も新しいものを1件返す。
+// 指定カテゴリ(対抗戦/クラブイベント(外部大会含む)など)の対戦のうち、最も新しいものを1件返す。
 // 該当する対戦が無ければnullを返す。
 // 試合が行われた日(YYYY-MM-DD)を返す。
 // 優先順位: ① 試合記録に保存された開催日(eventDay)
@@ -500,10 +521,12 @@ function getMatchPlayedDay(m, ev){
 function getPlayerLatestMatch(p, categories){
   const candidates = [];
   (p.matches||[]).forEach(m=>{
-    if(m.eventType !== 'event' || !m.eventId) return;
-    const ev = (data.events||[]).find(e=>e.id===m.eventId);
-    if(!ev || !categories.includes(ev.category)) return;
-    candidates.push({m, day: getMatchPlayedDay(m, ev), at: new Date(m.date).getTime() || 0});
+    if(!categories.includes(getMatchCategory(m))) return;
+    // 開催日の判定には予定(または大会記録)の日程を使う。紐づく記録がなければ入力日になる。
+    let src = null;
+    if(m.eventType === 'event') src = (data.events||[]).find(e=>e.id===m.eventId) || null;
+    else if(m.eventType === 'tournament') src = (data.tournaments||[]).find(t=>t.id===m.eventId) || null;
+    candidates.push({m, day: getMatchPlayedDay(m, src), at: new Date(m.date).getTime() || 0});
   });
   if(candidates.length===0) return null;
   candidates.sort((a,b) => (a.day === b.day) ? (b.at - a.at) : (a.day < b.day ? 1 : -1));
@@ -539,14 +562,26 @@ function getNotableWinInfo(match, myMaxMR){
   return {notable: isUpset || isStraight, isUpset, isStraight};
 }
 
-// 指定カテゴリの予定(出欠確認ありのもの)について、開催日数を分母、実際に「出席」と
-// 回答した日数を分子にして参加率(%)を計算する。対象の予定が1件も無ければnullを返す。
+// 予定のある開催日が「確定した日程」かどうか。
+//   ・出席期限が設定されている予定 … 期限を過ぎて出欠が確定していれば確定
+//   ・出席期限が無い予定           … 開催日を過ぎていれば確定
+// まだ出欠を受付中の日程を分母に含めると、未回答なだけで参加率が下がってしまうため除外する。
+function isEventDayConfirmed(ev, day, todayStr){
+  if(!todayStr) todayStr = new Date().toISOString().slice(0,10);
+  if(ev.attendanceDeadline) return todayStr > ev.attendanceDeadline;
+  return todayStr > day;
+}
+
+// 指定カテゴリの予定(出欠確認ありのもの)のうち「確定した日程」だけを対象に、開催日数を分母、
+// 実際に「出席」と回答した日数を分子にして参加率(%)を計算する。対象の日程が1件も無ければnullを返す。
 function getPlayerParticipationRate(name, categories){
   let total = 0, yes = 0;
+  const todayStr = new Date().toISOString().slice(0,10);
   (data.events||[]).forEach(ev=>{
     if(!ev.attendanceRequired) return;
     if(!categories.includes(ev.category)) return;
     (ev.dates||[]).forEach(day=>{
+      if(!isEventDayConfirmed(ev, day, todayStr)) return;
       total++;
       const status = ev.attendance && ev.attendance[day] && ev.attendance[day][name];
       if(status === 'yes') yes++;

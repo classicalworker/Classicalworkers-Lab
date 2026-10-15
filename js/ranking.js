@@ -168,18 +168,18 @@ function renderRanking(){
   }
 
   // ===== 対戦成績(旧・勝率ランキング) =====
-  // 対抗戦成績 / 身内イベント成績 / 総合成績 の3つに絞り込める。
+  // 対抗戦成績 / クラブイベント成績 / 総合成績 の3つに絞り込める。
   const recordTabsHtml = `
     <div class="sub-tabs" style="margin-top:-6px;">
       <div class="sub-tab ${rankingRecordSubTab === 'interteam' ? 'active' : ''}" onclick="switchRankingRecordSubTab('interteam')">🆚 対抗戦成績</div>
-      <div class="sub-tab ${rankingRecordSubTab === 'internal' ? 'active' : ''}" onclick="switchRankingRecordSubTab('internal')">🏠 身内イベント成績</div>
+      <div class="sub-tab ${rankingRecordSubTab === 'club' ? 'active' : ''}" onclick="switchRankingRecordSubTab('club')">🏠 クラブイベント成績</div>
       <div class="sub-tab ${rankingRecordSubTab === 'all' ? 'active' : ''}" onclick="switchRankingRecordSubTab('all')">📋 総合成績</div>
     </div>
   `;
 
   // ---- 📋 総合成績: 規定試合の判定は行わず、参加率が高い順に並べる ----
   if(rankingRecordSubTab === 'all'){
-    const categories = ['interteam','internal'];
+    const categories = ['interteam','club'];
 
     const list = names.map(n=>{
       const p = data.players[n];
@@ -247,20 +247,20 @@ function renderRanking(){
 
     el.innerHTML = subTabsHtml + recordTabsHtml + `
       <div style="margin-bottom:16px;text-align:center;font-size:13px;color:var(--text-dim)">
-        参加率が高い順に表示しています(集計対象:対抗戦+身内イベント)
+        参加率が高い順に表示しています(集計対象:対抗戦+クラブイベント(外部大会含む))
       </div>
       ${html}
     `;
     return;
   }
 
-  // ---- 🆚 対抗戦成績 / 🏠 身内イベント成績: 規定試合の到達判定つき ----
+  // ---- 🆚 対抗戦成績 / 🏠 クラブイベント成績: 規定試合の到達判定つき ----
   const required = getRequiredMatchCount();
 
   let categories, tagLabel;
-  if(rankingRecordSubTab === 'internal'){
-    categories = ['internal'];
-    tagLabel = '身内イベントのみ';
+  if(rankingRecordSubTab === 'club'){
+    categories = ['club'];
+    tagLabel = 'クラブイベント(外部大会含む)';
   } else {
     categories = ['interteam'];
     tagLabel = '対抗戦のみ';
@@ -272,7 +272,7 @@ function renderRanking(){
   const withMatchesInfo = withMatches.map(n=>{
     const p = data.players[n];
     const s = computeStatsForCategory(p, categories);
-    const interCount = rankingRecordSubTab === 'internal' ? getPlayerInternalMatchCount(p) : getPlayerInterTeamMatchCount(p);
+    const interCount = rankingRecordSubTab === 'club' ? getPlayerClubMatchCount(p) : getPlayerInterTeamMatchCount(p);
     return {name:n, s, interCount, reached: interCount >= required};
   });
 

@@ -1230,7 +1230,7 @@
   }
   h2 .mr-rank-pill{margin-left:8px;}
 
-  /* ==== 対戦成績(対抗戦・身内イベント)カード ==== */
+  /* ==== 対戦成績(対抗戦・クラブイベント)カード ==== */
   .rec-card .rank-top{align-items:center;gap:8px;}
   .rec-label{font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:.02em;}
   .rec-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
