@@ -464,7 +464,8 @@ function topGoalsCardHtml(){
   return `<div class="mission-list">${itemsHtml}</div>`;
 }
 
-// ---- MRランキングカード: 現在のMR(日々変動)の上位3名を表示 ----
+// ---- MRランキング・試合数ランキングのカード ----
+// 管理者ページの「現在MR・試合数の表示」がOFF(表示する)のときだけ、TOPに表示する。
 
 function topMrRankingCardHtml(){
   const names = Object.keys(data.players);
@@ -506,8 +507,6 @@ function topMrRankingCardHtml(){
   return `<div class="top-rank-list">${itemsHtml}</div>`;
 }
 
-// ---- 試合数ランキングカード: 現在のACTの試合数(全キャラ合計)の上位3名を表示 ----
-
 function topBattleRankingCardHtml(){
   const names = Object.keys(data.players);
   const withBattles = names
@@ -546,6 +545,153 @@ function topBattleRankingCardHtml(){
       </div>`;
   }).join('');
   return `<div class="top-rank-list">${itemsHtml}</div>`;
+}
+
+// ---- スタッツカード: 対抗戦スタッツからランダムに1項目を選び、上位5名を表示 ----
+// (出席入力などで再描画されるたびに項目が変わらないよう、選んだ項目をキャッシュする。
+//  「別の項目」ボタンで引き直せる)
+
+let topStatsColIndex = null;
+
+function topStatsCandidateCols(rows){
+  // 記録のあるメンバーが2名以上いる項目だけを候補にする
+  return STATS_COLS
+    .map((col, i) => ({col, i}))
+    .filter(({col}) => rows.filter(r => statsVal(r, col) !== null).length >= 2);
+}
+
+function topRerollStats(){
+  const cur = getCurrentStats();
+  if(!cur) return;
+  const cands = topStatsCandidateCols(cur.rows).filter(c => c.i !== topStatsColIndex);
+  if(cands.length === 0) return;
+  topStatsColIndex = cands[Math.floor(Math.random()*cands.length)].i;
+  const body = document.getElementById('top-stats-body');
+  if(body) body.innerHTML = topStatsCardHtml();
+}
+
+function topStatsCardHtml(){
+  const cur = getCurrentStats();
+  if(!cur || cur.rows.length === 0){
+    return `<div class="top-card-empty-msg">対抗戦スタッツはまだ登録されていません。</div>`;
+  }
+  const rows = cur.rows;
+  const cands = topStatsCandidateCols(rows);
+  if(cands.length === 0){
+    return `<div class="top-card-empty-msg">表示できるスタッツがありません。</div>`;
+  }
+  if(topStatsColIndex === null || !cands.some(c => c.i === topStatsColIndex)){
+    topStatsColIndex = cands[Math.floor(Math.random()*cands.length)].i;
+  }
+  const col = STATS_COLS[topStatsColIndex];
+  const ranked = rows
+    .filter(r => statsVal(r, col) !== null)
+    .sort((a,b) => statsCompare(a, b, col));
+
+  const fmt = r => {
+    const v = statsVal(r, col);
+    if(col.type === 'rate') return `${Math.round(v)}%<span class="top-stats-sub">(${statsNum(r[col.ok])||0}/${statsNum(r[col.tr])||0})</span>`;
+    if(col.type === 'pct') return `${Math.round(v)}%`;
+    return `${Number.isInteger(v) ? v : v.toFixed(1)}回`;
+  };
+
+  const medals = ['🥇','🥈','🥉'];
+  const itemsHtml = ranked.slice(0,5).map((r,i)=>{
+    const member = statsMemberNameFor(r['選手']);
+    const player = member ? data.players[member] : null;
+    const iconHtml = player && player.icon
+      ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
+      : `<div class="top-rank-icon-ph">👤</div>`;
+    const clickAttr = member ? ` data-member="${escapeHtml(member)}" onclick="goToMember(this.dataset.member)" role="button" tabindex="0" style="cursor:pointer"` : '';
+    return `
+      <div class="top-rank-item rank${i+1}"${clickAttr}>
+        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
+        ${iconHtml}
+        <div class="top-rank-body">
+          <span class="top-rank-name">${escapeHtml(r['選手'])}</span>
+          <span class="top-rank-rate">${fmt(r)}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const memo = cur.snap.memo ? `${escapeHtml(cur.snap.memo)}・` : '';
+  return `
+    <div class="top-stats-head">
+      <div class="top-stats-item">${escapeHtml(col.h)}${col.low ? '<span class="top-stats-low">少ない順</span>' : ''}</div>
+      <button type="button" class="top-stats-reroll" onclick="topRerollStats()">🔀 別の項目</button>
+    </div>
+    <div class="top-card-subnote">${memo}対抗戦スタッツ ${rows.length}名</div>
+    <div class="top-rank-list">${itemsHtml}</div>`;
+}
+
+// ---- 対外試合ランキングカード: 対抗戦成績の上位5名を表示 ----
+// ランキングページの「🆚 対抗戦成績」と同じ並び(規定試合到達者が優先 → 勝率 → 勝ち数)。
+
+function topInterteamRankingCardHtml(){
+  const categories = ['interteam'];
+  const required = getRequiredMatchCount();
+  const ranked = Object.keys(data.players)
+    .map(n => {
+      const p = data.players[n];
+      const stats = computeStatsForCategory(p, categories);
+      const count = getPlayerInterTeamMatchCount(p);
+      return {name:n, stats, count, reached: count >= required};
+    })
+    .filter(p => p.stats.total > 0)
+    .sort((a,b)=>{
+      if(a.reached !== b.reached) return a.reached ? -1 : 1;
+      if(b.stats.winRate !== a.stats.winRate) return b.stats.winRate - a.stats.winRate;
+      return b.stats.wins - a.stats.wins;
+    });
+
+  if(ranked.length===0){
+    return `<div class="top-card-empty-msg">まだ対外試合の成績が記録されていません。</div>`;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const itemsHtml = ranked.slice(0,5).map((p,i)=>{
+    const player = data.players[p.name];
+    const iconHtml = player.icon
+      ? `<img class="top-rank-icon" src="${player.icon}" alt="">`
+      : `<div class="top-rank-icon-ph">👤</div>`;
+    const losses = Math.max(0, p.stats.total - p.stats.wins);
+    const regBadge = p.reached
+      ? `<span class="top-reg-badge reached">規定到達</span>`
+      : `<span class="top-reg-badge">規定未到達</span>`;
+
+    const latest = getPlayerLatestMatch(player, categories);
+    let latestHtml = `<div class="top-rank-latest none">直近の対戦:記録なし</div>`;
+    if(latest){
+      const fxInfo = getNotableWinInfo(latest, player.maxMR);
+      const fx = fxInfo.isUpset && fxInfo.isStraight ? {cls:'fx-rainbow', label:'格上ストレート勝利'}
+        : fxInfo.isUpset ? {cls:'fx-upset', label:'格上撃破'}
+        : fxInfo.isStraight ? {cls:'fx-straight', label:'ストレート勝利'}
+        : null;
+      const isWin = latest.result==='win';
+      latestHtml = `
+        <div class="top-rank-latest ${fx ? fx.cls : ''}">
+          <span class="top-rank-latest-label">直近</span>
+          <span class="top-rank-latest-opp">vs ${escapeHtml(latest.opponent||'')}</span>
+          <span class="top-rank-latest-result ${isWin?'win':'loss'}">${isWin?'WIN':'LOSE'}${latest.score?` ${escapeHtml(latest.score)}`:''}</span>
+          ${fx ? `<span class="rec-fx-label">${fx.label}</span>` : ''}
+        </div>`;
+    }
+
+    return `
+      <div class="top-rank-item top-rank-item--record rank${i+1}" onclick="goToMember('${p.name.replace(/'/g,"\\'")}')" role="button" tabindex="0">
+        <span class="top-rank-medal">${medals[i] || `#${i+1}`}</span>
+        ${iconHtml}
+        <div class="top-rank-body top-rank-body--record">
+          <div class="top-rank-row">
+            <span class="top-rank-name">${escapeHtml(p.name)}</span>
+            <span class="top-rank-rate">勝率 ${p.stats.winRate.toFixed(0)}%</span>
+          </div>
+          <div class="top-rank-record">${p.stats.total}戦${p.stats.wins}勝${losses}敗 ${regBadge}</div>
+          ${latestHtml}
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="top-card-subnote">対抗戦のみ・規定試合 ${required}試合(到達者を優先して勝率順)</div><div class="top-rank-list">${itemsHtml}</div>`;
 }
 
 // ---- ランキングカード: 対戦成績(総合成績)の上位5名を表示 ----
@@ -648,7 +794,7 @@ function topAnnouncementsCardHtml(){
 function renderTop(){
   const el = document.getElementById('view-top');
   el.innerHTML = `
-    <div class="top-dashboard">
+    <div class="top-dashboard${isMrBattleMasked() ? '' : ' top-dashboard--mr'}">
 
       <div class="top-card top-card--onair">
         <div class="top-card-head">
@@ -688,20 +834,41 @@ function renderTop(){
         </div>
       </div>
 
+      <div class="top-card top-card--stats">
+        <div class="top-card-head">
+          <div class="top-card-title">📈 スタッツ<span class="top-card-title-note">(ランダムに表示中)</span></div>
+          <a class="top-link-btn" href="ranking.html?tab=stats">見る</a>
+        </div>
+        <div class="top-card-body" id="top-stats-body">
+          ${topStatsCardHtml()}
+        </div>
+      </div>
+
       <div class="top-card top-card--ranking">
         <div class="top-card-head">
           <div class="top-card-title">🏆 対戦成績ランキング</div>
-          <a class="top-link-btn" href="ranking.html">見る</a>
+          <a class="top-link-btn" href="ranking.html?tab=winrate&record=all">見る</a>
         </div>
         <div class="top-card-body">
           ${topRankingCardHtml()}
         </div>
       </div>
 
+      <div class="top-card top-card--interteam">
+        <div class="top-card-head">
+          <div class="top-card-title">🆚 対外試合ランキング</div>
+          <a class="top-link-btn" href="ranking.html?tab=winrate&record=interteam">見る</a>
+        </div>
+        <div class="top-card-body">
+          ${topInterteamRankingCardHtml()}
+        </div>
+      </div>
+
+      ${isMrBattleMasked() ? '' : `
       <div class="top-card top-card--mrranking">
         <div class="top-card-head">
           <div class="top-card-title">📊 MRランキング</div>
-          <a class="top-link-btn" href="ranking.html">見る</a>
+          <a class="top-link-btn" href="ranking.html?tab=mr">見る</a>
         </div>
         <div class="top-card-body">
           ${topMrRankingCardHtml()}
@@ -711,12 +878,12 @@ function renderTop(){
       <div class="top-card top-card--battleranking">
         <div class="top-card-head">
           <div class="top-card-title">🎮 試合数ランキング</div>
-          <a class="top-link-btn" href="ranking.html">見る</a>
+          <a class="top-link-btn" href="ranking.html?tab=battles">見る</a>
         </div>
         <div class="top-card-body">
           ${topBattleRankingCardHtml()}
         </div>
-      </div>
+      </div>`}
 
     </div>
   `;

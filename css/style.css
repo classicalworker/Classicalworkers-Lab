@@ -506,9 +506,9 @@
       "notice"
       "schedule"
       "goals"
-      "mission"
+      "stats"
       "ranking"
-      "mrranking";
+      "interteam";
     gap:16px;
   }
   @media (min-width:640px){
@@ -518,16 +518,33 @@
         "onair onair"
         "notice notice"
         "schedule schedule"
-        "goals mission"
-        "ranking mrranking";
+        "goals stats"
+        "ranking interteam";
       align-items:start;
+    }
+  }
+  /* 現在MR・試合数の表示マスクがOFFのときだけ、MR/試合数ランキングの行を追加する */
+  .top-dashboard.top-dashboard--mr{
+    grid-template-areas:
+      "onair" "notice" "schedule" "goals" "stats" "ranking" "interteam" "mrranking" "battleranking";
+  }
+  @media (min-width:640px){
+    .top-dashboard.top-dashboard--mr{
+      grid-template-areas:
+        "onair onair"
+        "notice notice"
+        "schedule schedule"
+        "goals stats"
+        "ranking interteam"
+        "mrranking battleranking";
     }
   }
   .top-dashboard .top-card{margin-bottom:0;}
   @media (min-width:640px){
     /* 横並びペアの高さを揃えて、行内に不自然な空白ができないようにする
        (「みんなの課題」「自分の課題」は内容量に応じて枠を変えたいので対象外) */
-    .top-card--ranking, .top-card--mrranking{
+    .top-card--ranking, .top-card--interteam,
+    .top-card--mrranking, .top-card--battleranking{
       height:100%;
     }
   }
@@ -535,7 +552,10 @@
   .top-card--notice{grid-area:notice;}
   .top-card--goals{grid-area:goals;}
   .top-card--ranking{grid-area:ranking;}
+  .top-card--stats{grid-area:stats;}
+  .top-card--interteam{grid-area:interteam;}
   .top-card--mrranking{grid-area:mrranking;}
+  .top-card--battleranking{grid-area:battleranking;}
   .top-card--mission{grid-area:mission;}
   .top-card--onair{grid-area:onair;}
 
@@ -727,6 +747,16 @@
 
   /* -- 対戦成績ランキングカード(総合成績): 参加率・戦績・直近の対戦結果 -- */
   .top-card-subnote{font-size:11px;color:var(--text-dim);margin:-2px 0 8px;}
+  /* TOP: スタッツ(ランダム)カード */
+  .top-stats-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
+  .top-stats-item{font-weight:800;font-size:15px;color:var(--gold);}
+  .top-stats-low{font-size:10px;font-weight:700;color:var(--text-dim);margin-left:6px;}
+  .top-stats-reroll{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--panel-border);background:transparent;color:var(--text-dim);cursor:pointer;}
+  .top-stats-reroll:hover{border-color:var(--gold);color:var(--gold);}
+  .top-stats-sub{font-size:10px;color:var(--text-dim);margin-left:3px;font-weight:400;}
+  /* TOP: 対外試合ランキングの規定試合バッジ */
+  .top-reg-badge{display:inline-block;font-size:10px;font-weight:700;padding:0 6px;border-radius:999px;margin-left:4px;background:rgba(var(--loss-rgb),.1);color:var(--loss);}
+  .top-reg-badge.reached{background:rgba(var(--win-rgb),.12);color:var(--win);}
   .top-rank-item--record{cursor:pointer;transition:border-color .15s,background .15s;}
   .top-rank-item--record:hover{border-color:var(--gold);}
   .top-rank-body--record{flex-direction:column;align-items:stretch;gap:3px;}

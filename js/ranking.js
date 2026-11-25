@@ -17,11 +17,13 @@ function renderRanking(){
   const el = document.getElementById('view-ranking');
   const names = Object.keys(data.players);
 
+  // 現在MR・試合数が取得できない間は、MRランキング・試合数ランキングのタブを隠す(管理者ページで切り替え)
+  if(isMrBattleMasked() && (rankingSubTab === 'mr' || rankingSubTab === 'battles')) rankingSubTab = 'winrate';
   const subTabsHtml = `
     <div class="sub-tabs">
       <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 対戦成績</div>
-      <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
-      <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>
+      ${isMrBattleMasked() ? '' : `<div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
+      <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>`}
       <div class="sub-tab ${rankingSubTab === 'stats' ? 'active' : ''}" onclick="switchRankingSubTab('stats')">📈 対抗戦スタッツ</div>
     </div>
   `;
@@ -384,6 +386,12 @@ function renderCurrentPage(){
 }
 
 (async function(){
+  // TOPページの「見る」から開いたとき用: ranking.html?tab=stats / ?tab=winrate&record=interteam など
+  const params = new URLSearchParams(location.search);
+  const tabParam = params.get('tab');
+  if(['winrate','stats','mr','battles'].includes(tabParam)) rankingSubTab = tabParam;
+  const recordParam = params.get('record');
+  if(['interteam','club','all'].includes(recordParam)) rankingRecordSubTab = recordParam;
   document.getElementById('view-ranking').innerHTML = '<div class="empty">読み込み中...</div>';
   await initPage();
 })();

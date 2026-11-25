@@ -36,7 +36,7 @@ function renderGoalsOverview(){
       <div class="goal-card">
         <div class="goal-card-top">
           <span class="goal-card-name">${escapeHtml(name)}</span>
-          <span class="goal-card-chars">操作:${escapeHtml(controlLabel)} ${p.currentMR ? 'MR:'+escapeHtml(p.currentMR) : ''}</span>
+          <span class="goal-card-chars">操作:${escapeHtml(controlLabel)} ${visibleCurrentMR(p) ? 'MR:'+escapeHtml(p.currentMR) : ''}</span>
         </div>
         ${mainGoalHtml}
         <div class="mission-rate-block" style="display:flex;align-items:center;justify-content:space-between;">

@@ -112,7 +112,7 @@ function renderMyPageWithPlayer(){
 
       <label>ユーザーコード(入力すると最大MRが表示されます)</label>
       <input type="text" id="user-code-input" value="${escapeHtml(p.userCode||'')}" placeholder="例:1234567890">
-      ${(p.currentMR || p.maxMR || p.userCode) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.currentMR ? `現在のMR: ${escapeHtml(p.currentMR)}` : (p.userCode ? '今ACTランクマッチ未実施' : '')}${(p.maxMR && (p.currentMR || p.userCode)) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
+      ${(visibleCurrentMR(p) || p.maxMR || (p.userCode && !isMrBattleMasked())) ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${visibleCurrentMR(p) ? `現在のMR: ${escapeHtml(p.currentMR)}` : ((p.userCode && !isMrBattleMasked()) ? '今ACTランクマッチ未実施' : '')}${(p.maxMR && (visibleCurrentMR(p) || (p.userCode && !isMrBattleMasked()))) ? '　' : ''}${p.maxMR ? `最大MR: ${escapeHtml(p.maxMR)}` : ''}</div>` : ''}
 
       <label>使用デバイス</label>
       <div class="choice-group" style="flex-wrap:wrap">

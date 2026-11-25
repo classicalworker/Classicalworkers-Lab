@@ -71,6 +71,7 @@ function adminDashboardHtml(){
     ${adminActSettingsHtml()}
     ${adminRegulationSettingsHtml()}
     ${adminMatchRecordMaskHtml()}
+    ${adminMrBattleMaskHtml()}
     ${statsAdminHtml()}
     ${adminMemberEditHtml()}
     ${adminAnnouncementsHtml()}
@@ -129,6 +130,33 @@ async function adminSetMatchRecordMask(on){
   await saveData();
   renderAdmin();
   showToast(on ? 'マイページの対戦結果の記録をマスクしました' : 'マイページの対戦結果の記録を再開しました');
+}
+
+// ---- 現在MR・試合数の表示マスク(ON=全画面で非表示。未設定時はON) ----
+function adminMrBattleMaskHtml(){
+  const on = isMrBattleMasked();
+  return `
+    <div class="card">
+      <h2>📊 現在MR・試合数の表示</h2>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
+        ONにすると、現在MR・ACT試合数をすべての画面で非表示にします(メンバー一覧・メンバー詳細・マイページ・目標ページ)。<br>
+        ランキングの「MRランキング」「試合数ランキング」タブと、TOPのMRランキング・試合数ランキングのカードも表示されなくなります。<br>
+        最大MRはON/OFFに関係なく表示されます。
+      </div>
+      <div class="choice-group">
+        <div class="choice ${on ? '' : 'selected mask-off'}" onclick="adminSetMrBattleMask(false)">OFF（表示する）</div>
+        <div class="choice ${on ? 'selected mask-on' : ''}" onclick="adminSetMrBattleMask(true)">ON（マスクする）</div>
+      </div>
+      <div style="font-size:13px;margin-top:10px;">現在：<span class="top-card-highlight">${on ? 'ON（現在MR・試合数を非表示）' : 'OFF（表示中）'}</span></div>
+    </div>`;
+}
+
+async function adminSetMrBattleMask(on){
+  if(isMrBattleMasked() === on) return;
+  data.maskMrBattle = on;
+  await saveData();
+  renderAdmin();
+  showToast(on ? '現在MR・試合数の表示をマスクしました' : '現在MR・試合数の表示を再開しました');
 }
 
 // ---- ②' 対戦成績ランキングの規定試合数の設定 ----
