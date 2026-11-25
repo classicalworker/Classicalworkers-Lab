@@ -17,13 +17,19 @@ function renderRanking(){
   const el = document.getElementById('view-ranking');
   const names = Object.keys(data.players);
 
-  // 現在MR・試合数が取得できない間は、MRランキング・試合数ランキングのタブを隠す(管理者ページで切り替え)
-  if(isMrBattleMasked() && (rankingSubTab === 'mr' || rankingSubTab === 'battles')) rankingSubTab = 'winrate';
+  // 現在MR・試合数が取得できない間は、試合数ランキングのタブと、MRランキング内の「Act〇〇ランキング」を隠す
+  // (最高MRランキングは表示する。管理者ページで切り替え)
+  const mrMasked = isMrBattleMasked();
+  if(mrMasked && rankingSubTab === 'battles') rankingSubTab = 'winrate';
+  // 「Act〇〇ランキング」はマスクのON/OFFに関係なく非表示にする(MRランキングは最高MRランキングのみ)
+  const SHOW_ACT_MR_RANKING = false;
+  if(!SHOW_ACT_MR_RANKING || mrMasked) rankingMRSubTab = 'max';
+  const showMrSubTabs = SHOW_ACT_MR_RANKING && !mrMasked;
   const subTabsHtml = `
     <div class="sub-tabs">
       <div class="sub-tab ${rankingSubTab === 'winrate' ? 'active' : ''}" onclick="switchRankingSubTab('winrate')">🏆 対戦成績</div>
-      ${isMrBattleMasked() ? '' : `<div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">📊 MRランキング</div>
-      <div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>`}
+      <div class="sub-tab ${rankingSubTab === 'mr' ? 'active' : ''}" onclick="switchRankingSubTab('mr')">${showMrSubTabs ? '📊 MRランキング' : '👑 最高MRランキング'}</div>
+      ${mrMasked ? '' : `<div class="sub-tab ${rankingSubTab === 'battles' ? 'active' : ''}" onclick="switchRankingSubTab('battles')">🎮 試合数ランキング</div>`}
       <div class="sub-tab ${rankingSubTab === 'stats' ? 'active' : ''}" onclick="switchRankingSubTab('stats')">📈 対抗戦スタッツ</div>
     </div>
   `;
@@ -89,7 +95,7 @@ function renderRanking(){
 
   if(rankingSubTab === 'mr'){
     const actNo = getCurrentActNumber();
-    const mrSubTabsHtml = `
+    const mrSubTabsHtml = !showMrSubTabs ? '' : `
       <div class="sub-tabs">
         <div class="sub-tab ${rankingMRSubTab === 'max' ? 'active' : ''}" onclick="switchRankingMRSubTab('max')">👑 最高MRランキング</div>
         <div class="sub-tab ${rankingMRSubTab === 'act' ? 'active' : ''}" onclick="switchRankingMRSubTab('act')">📊 Act${actNo}ランキング</div>

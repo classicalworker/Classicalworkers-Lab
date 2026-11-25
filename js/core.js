@@ -8,7 +8,7 @@ const RANKING_REFERENCE_ONLY_NAMES = ["キタロー"];
 
 // 現在MR・ACT試合数の表示マスク
 // メトログラフから現在MR・試合数が取得できなくなったため、すべての画面で非表示にできるようにする。
-// (MRランキング・試合数ランキングのタブ/TOPカードも非表示)
+// (Act〇〇ランキング・試合数ランキングのタブ/TOPカードも非表示。最高MRは対象外)
 // 管理者ページの「📊 現在MR・試合数の表示」で切り替える(data.maskMrBattle)。未設定のときはON(マスクする)扱い。
 function isMrBattleMasked(){ return !(data && data.maskMrBattle === false); }
 function visibleCurrentMR(p){ return (isMrBattleMasked() || !p) ? '' : (p.currentMR || ''); }

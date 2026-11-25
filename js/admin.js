@@ -139,9 +139,9 @@ function adminMrBattleMaskHtml(){
     <div class="card">
       <h2>📊 現在MR・試合数の表示</h2>
       <div style="font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
-        ONにすると、現在MR・ACT試合数をすべての画面で非表示にします(メンバー一覧・メンバー詳細・マイページ・目標ページ)。<br>
-        ランキングの「MRランキング」「試合数ランキング」タブと、TOPのMRランキング・試合数ランキングのカードも表示されなくなります。<br>
-        最大MRはON/OFFに関係なく表示されます。
+        ONにすると、現在ACTのMR・試合数をすべての画面で非表示にします(メンバー一覧・メンバー詳細・マイページ・目標ページ)。<br>
+        ランキングの「試合数ランキング」と、TOPのMRランキング・試合数ランキングのカードも表示されなくなります。<br>
+        最高MR(最高MRランキングを含む)はON/OFFに関係なく表示されます。
       </div>
       <div class="choice-group">
         <div class="choice ${on ? '' : 'selected mask-off'}" onclick="adminSetMrBattleMask(false)">OFF（表示する）</div>
